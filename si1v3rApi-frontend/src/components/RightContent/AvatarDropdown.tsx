@@ -1,4 +1,4 @@
-import { userLogoutUsingPost } from '@/services/backend/userController';
+import { userLogoutUsingPost } from '@/services/si1v3rApi-backend/userController';
 import { LogoutOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
 import { history, useModel } from '@umijs/max';
 import { Avatar, Button, Space } from 'antd';
