@@ -1,6 +1,9 @@
 package com.si1v3r.si1v3rApi.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.si1v3r.si1v3rApi.model.dto.interfaceinfo.InterfaceInfoQueryRequest;
+import com.si1v3r.si1v3rApi.model.dto.post.PostQueryRequest;
 import com.si1v3r.si1v3rApi.model.entity.InterfaceInfo;
 import com.si1v3r.si1v3rApi.model.entity.Post;
 import com.si1v3r.si1v3rApi.model.vo.InterfaceInfoVO;
@@ -16,5 +19,10 @@ public interface InterfaceInfoService extends IService<InterfaceInfo> {
     void validInterfaceInfo(InterfaceInfo interfaceInfo, boolean add);
 
     InterfaceInfoVO getInterfaceInfoVO(InterfaceInfo interfaceInfo, HttpServletRequest request);
+
+    QueryWrapper<InterfaceInfo> getQueryWrapper(InterfaceInfoQueryRequest interfaceInfoQueryRequest
+    );
+
+
 
 }

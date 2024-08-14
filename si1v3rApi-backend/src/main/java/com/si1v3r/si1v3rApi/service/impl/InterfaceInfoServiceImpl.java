@@ -1,20 +1,26 @@
 package com.si1v3r.si1v3rApi.service.impl;
 
+import cn.hutool.core.collection.CollUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.si1v3r.si1v3rApi.common.ErrorCode;
+import com.si1v3r.si1v3rApi.constant.CommonConstant;
 import com.si1v3r.si1v3rApi.exception.BusinessException;
 import com.si1v3r.si1v3rApi.exception.ThrowUtils;
+import com.si1v3r.si1v3rApi.model.dto.interfaceinfo.InterfaceInfoQueryRequest;
 import com.si1v3r.si1v3rApi.model.entity.*;
 import com.si1v3r.si1v3rApi.model.vo.InterfaceInfoVO;
 import com.si1v3r.si1v3rApi.model.vo.UserVO;
 import com.si1v3r.si1v3rApi.service.InterfaceInfoService;
 import com.si1v3r.si1v3rApi.mapper.InterfaceInfoMapper;
+import com.si1v3r.si1v3rApi.utils.SqlUtils;
+import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.List;
 
 /**
 * @author ruimingzhu
@@ -56,6 +62,39 @@ public class InterfaceInfoServiceImpl extends ServiceImpl<InterfaceInfoMapper, I
         return null;
     }
 
+
+
+
+    @Override
+    public QueryWrapper<InterfaceInfo> getQueryWrapper(InterfaceInfoQueryRequest interfaceInfoQueryRequest) {
+        QueryWrapper<InterfaceInfo> queryWrapper = new QueryWrapper<>();
+        if (interfaceInfoQueryRequest == null) {
+            return queryWrapper;
+        }
+
+        String url = interfaceInfoQueryRequest.getUrl();
+        long id = interfaceInfoQueryRequest.getId();
+        String name = interfaceInfoQueryRequest.getName();
+        String description = interfaceInfoQueryRequest.getDescription();
+        String method = interfaceInfoQueryRequest.getMethod();
+        String sortField = interfaceInfoQueryRequest.getSortField();
+        String sortOrder = interfaceInfoQueryRequest.getSortOrder();
+
+
+
+        // 拼接查询条件
+//        if (StringUtils.isNotBlank(description)) {
+//            queryWrapper.and(qw -> qw.like("description", description).or().like("content", description));
+//        }
+        queryWrapper.like(StringUtils.isNotBlank(name), "name", name);
+        queryWrapper.like(StringUtils.isNotBlank(url), "url", url);
+
+        //queryWrapper.eq(ObjectUtils.isNotEmpty(id), "id", id);
+        //queryWrapper.eq(ObjectUtils.isNotEmpty(userId), "userId", userId);
+//        queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortOrder.equals(CommonConstant.SORT_ORDER_ASC),
+//                sortField);
+        return queryWrapper;
+    }
 
 
 }

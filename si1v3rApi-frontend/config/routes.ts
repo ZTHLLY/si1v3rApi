@@ -16,8 +16,10 @@ export default [
     routes: [
       { path: '/admin', redirect: '/admin/user' },
       { icon: 'table', path: '/admin/user', component: './Admin/User', name: '用户管理' },
+      { icon: 'table', path: '/admin/api', component: './Admin/Api', name: 'api接口管理' },
     ],
   },
+  
   { path: '/', redirect: '/welcome' },
   { path: '*', layout: false, component: './404' },
 ];
