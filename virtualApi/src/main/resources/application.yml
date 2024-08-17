@@ -1,0 +1,17 @@
+
+spring:
+  application:
+    name: springboot-init
+  # 默认 dev 环境
+  profiles:
+    active: dev
+
+server:
+  address: 0.0.0.0
+  port: 8002
+  servlet:
+    context-path: /api
+    # cookie 30 天过期
+    session:
+      cookie:
+        max-age: 2592000

@@ -1,6 +1,6 @@
-import CreateModal from '@/pages/Admin/User/components/CreateModal';
-import UpdateModal from '@/pages/Admin/User/components/UpdateModal';
-import { listInterfaceInfoByPageUsingPost } from '@/services/si1v3rApi-backend/interfaceController';
+import CreateModal from '@/pages/Admin/Api/components/CreateModal';
+import UpdateModal from '@/pages/Admin/Api/components/UpdateModal';
+import { deleteInterfaceInfoUsingPost, listInterfaceInfoByPageUsingPost } from '@/services/si1v3rApi-backend/interfaceController';
 import { deleteUserUsingPost, listUserByPageUsingPost } from '@/services/si1v3rApi-backend/userController';
 import { PlusOutlined } from '@ant-design/icons';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
@@ -28,11 +28,11 @@ const ApiAdminPage: React.FC = () => {
    *
    * @param row
    */
-  const handleDelete = async (row: API.User) => {
+  const handleDelete = async (row: API.InterfaceInfo) => {
     const hide = message.loading('正在删除');
     if (!row) return true;
     try {
-      await deleteUserUsingPost({
+      await deleteInterfaceInfoUsingPost({
         id: row.id as any,
       });
       hide();
@@ -106,11 +106,13 @@ const ApiAdminPage: React.FC = () => {
       title: '创建时间',
       dataIndex: 'createTime',
       valueType: 'dateTime',
+      hideInForm: true,
     },
     {
       title: '更新时间',
       dataIndex: 'updateTime',
       valueType: 'dateTime',
+      hideInForm: true,
     },
     {
       title: '操作',
@@ -120,17 +122,24 @@ const ApiAdminPage: React.FC = () => {
         <a
           key="config"
           onClick={() => {
-            updateModalVisible(true);
+            setUpdateModalVisible(true);
             setCurrentRow(record);
           }}
         >
-          配置
+          修改
         </a>,
-        <a key="subscribeAlert" href="https://procomponents.ant.design/">
-          订阅警报
-        </a>,
+         <a
+         key="config"
+         onClick={() => {
+          //console.log(record);
+          handleDelete(record);
+        }}
+       >
+        删除
+       </a>,
       ],
     },
+
   ];
   return (
     <PageContainer>
