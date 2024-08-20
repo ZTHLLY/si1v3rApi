@@ -14,12 +14,15 @@ class VirtualApiApplicationTests {
 
     @Test
     void clintTest(){
+
         String params="ruiming";
         User user1 = new User();
         user1.setName(params);
+        String assessKey="admin01";
+        String secretKey="abcdefgh";
 
+        Si1v3rApiclint si1v3rApiclint=new Si1v3rApiclint(assessKey,secretKey);
 
-        Si1v3rApiclint si1v3rApiclint=new Si1v3rApiclint();
         String result = si1v3rApiclint.getNameByGet(params);
         String result2 = si1v3rApiclint.getNameByPost(params);
         String result3 = si1v3rApiclint.getUsernameByPost(user1);
