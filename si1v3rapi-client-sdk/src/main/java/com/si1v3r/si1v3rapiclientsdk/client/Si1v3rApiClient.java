@@ -1,8 +1,5 @@
-package com.si1v3r.virtualapi.clint;
+package com.si1v3r.si1v3rapiclientsdk.client;
 
-
-import java.util.HashMap;
-import java.util.Map;
 
 import cn.hutool.core.util.RandomUtil;
 import cn.hutool.crypto.digest.DigestAlgorithm;
@@ -11,17 +8,20 @@ import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
 import cn.hutool.http.HttpUtil;
 import cn.hutool.json.JSONUtil;
-import com.si1v3r.virtualapi.model.User;
-import org.springframework.util.DigestUtils;
-import org.springframework.web.bind.annotation.RequestBody;
 
-public class Si1v3rApiclint {
+import com.si1v3r.si1v3rapiclientsdk.model.User;
+
+
+import java.util.HashMap;
+import java.util.Map;
+
+public class Si1v3rApiClient {
 
     private String assessKey;
     private String secretKey;
 
 
-    public Si1v3rApiclint(String assessKey, String secretKey){
+    public Si1v3rApiClient(String assessKey, String secretKey){
         this.assessKey=assessKey;
         this.secretKey=secretKey;
     }
@@ -75,7 +75,7 @@ public class Si1v3rApiclint {
         return headers;
     }
 
-    public String getUsernameByPost(@RequestBody User user) {
+    public String getUsernameByPost( User user) {
         String json = JSONUtil.toJsonStr(user);
         HttpResponse httpResponse = HttpRequest.post("http://localhost:8002/api/name/user")
                 .addHeaders(setKeys(json))

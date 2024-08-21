@@ -1,4 +1,4 @@
-package com.si1v3r.virtualapi.utils;
+package com.si1v3r.si1v3rapiclientsdk.utils;
 
 import cn.hutool.crypto.digest.DigestAlgorithm;
 import cn.hutool.crypto.digest.Digester;

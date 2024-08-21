@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.si1v3r.virtualapi.model;
+package com.si1v3r.si1v3rapiclientsdk.model;
 
 /**
  * @author <a href="mailto:chenxilzx1@gmail.com">theonefx</a>

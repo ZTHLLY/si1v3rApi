@@ -15,3 +15,7 @@ server:
     session:
       cookie:
         max-age: 2592000
+si1v3r:
+  client:
+    assess-key: admin01
+    secret-key: abcdefgh

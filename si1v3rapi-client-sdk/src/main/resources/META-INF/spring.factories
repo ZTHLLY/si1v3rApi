@@ -1,0 +1,2 @@
+#spring boot starter
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=com.si1v3r.si1v3rapiclientsdk.si1v3rApiClientConfig
