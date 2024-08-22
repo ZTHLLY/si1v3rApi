@@ -9,7 +9,7 @@ spring:
 
 server:
   address: 0.0.0.0
-  port: 8005
+  port: 8002
   servlet:
     context-path: /api
     # cookie 30 天过期
