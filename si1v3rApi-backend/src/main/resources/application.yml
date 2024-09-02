@@ -102,3 +102,7 @@ knife4j:
         api-rule-resources:
           - com.si1v3r.si1v3rApi.controller
     concat: "si1v3r"
+si1v3r:
+  client:
+    assess-key: admin01
+    secret-key: abcdefgh

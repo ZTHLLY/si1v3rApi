@@ -3,10 +3,7 @@ package com.si1v3r.si1v3rApi.controller;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.si1v3r.si1v3rApi.annotation.AuthCheck;
-import com.si1v3r.si1v3rApi.common.BaseResponse;
-import com.si1v3r.si1v3rApi.common.DeleteRequest;
-import com.si1v3r.si1v3rApi.common.ErrorCode;
-import com.si1v3r.si1v3rApi.common.ResultUtils;
+import com.si1v3r.si1v3rApi.common.*;
 import com.si1v3r.si1v3rApi.constant.UserConstant;
 import com.si1v3r.si1v3rApi.exception.BusinessException;
 import com.si1v3r.si1v3rApi.exception.ThrowUtils;
@@ -15,12 +12,14 @@ import com.si1v3r.si1v3rApi.model.dto.interfaceinfo.InterfaceInfoQueryRequest;
 import com.si1v3r.si1v3rApi.model.dto.interfaceinfo.InterfaceInfoUpdateRequest;
 import com.si1v3r.si1v3rApi.model.entity.InterfaceInfo;
 import com.si1v3r.si1v3rApi.model.entity.User;
+import com.si1v3r.si1v3rApi.model.enums.InterfaceStatusEnum;
 import com.si1v3r.si1v3rApi.model.vo.InterfaceInfoVO;
 import com.si1v3r.si1v3rApi.service.InterfaceInfoService;
 import com.si1v3r.si1v3rApi.service.UserService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
+import com.si1v3r.si1v3rapiclientsdk.client.Si1v3rApiClient;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
@@ -42,7 +41,8 @@ public class InterfaceController {
     @Resource
     private UserService userService;
 
-
+    @Resource
+    private Si1v3rApiClient si1v3rApiClient;
 
     // region 增删改查
 
@@ -175,6 +175,73 @@ public class InterfaceController {
 //                interfaceInfoService.getQueryWrapper(interfaceInfoQueryRequest));
 //        return ResultUtils.success(interfaceInfoService.getInterfaceInfoVOPage(interfaceInfoPage, request));
         return null;
+    }
+
+
+    /**
+     * 发布（仅管理员）
+     *
+     * @param idRequest
+     * @return BaseResponse
+     */
+    @PostMapping("/online")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> onlineInterfaceInfo(@RequestBody IdRequest idRequest) {
+        if (idRequest == null || idRequest.getId() <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        Long id = idRequest.getId();
+        InterfaceInfo oldinterfaceInfo = interfaceInfoService.getById(id);
+        if(oldinterfaceInfo==null){
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
+        }
+
+
+        com.si1v3r.si1v3rapiclientsdk.model.User user=new com.si1v3r.si1v3rapiclientsdk.model.User();
+        user.setName("test");
+        String getUser = si1v3rApiClient.getUsernameByPost(user);
+        if(getUser==null){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"接口认证失败");
+        }
+
+        InterfaceInfo interfaceInfo =new InterfaceInfo();
+        interfaceInfo.setId(id);
+        interfaceInfo.setStatus(InterfaceStatusEnum.ONLINE.getValue());
+
+        boolean result = interfaceInfoService.updateById(interfaceInfo);
+
+        return ResultUtils.success(result);
+    }
+
+
+    /**
+     * 下线（仅管理员）
+     *
+     * @param idRequest
+     * @return
+     */
+    @PostMapping("/offline")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Boolean> offlineInterfaceInfo(@RequestBody IdRequest idRequest) {
+        if (idRequest == null || idRequest.getId() <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        Long id = idRequest.getId();
+        InterfaceInfo oldinterfaceInfo = interfaceInfoService.getById(id);
+        if(oldinterfaceInfo==null){
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
+        }
+
+        InterfaceInfo interfaceInfo=new InterfaceInfo();
+        interfaceInfo.setId(id);
+        interfaceInfo.setStatus(InterfaceStatusEnum.OFFLINE.getValue());
+
+
+
+       boolean result = interfaceInfoService.updateById(interfaceInfo);
+
+
+        return ResultUtils.success(result);
     }
 
 

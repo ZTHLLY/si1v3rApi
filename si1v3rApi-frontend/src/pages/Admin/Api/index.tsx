@@ -1,12 +1,16 @@
 import CreateModal from '@/pages/Admin/Api/components/CreateModal';
 import UpdateModal from '@/pages/Admin/Api/components/UpdateModal';
-import { deleteInterfaceInfoUsingPost, listInterfaceInfoByPageUsingPost } from '@/services/si1v3rApi-backend/interfaceController';
-import { deleteUserUsingPost, listUserByPageUsingPost } from '@/services/si1v3rApi-backend/userController';
+import {
+  deleteInterfaceInfoUsingPost,
+  listInterfaceInfoByPageUsingPost,
+  offlineInterfaceInfoUsingPost,
+  onlineInterfaceInfoUsingPost,
+} from '@/services/si1v3rApi-backend/interfaceController';
 import { PlusOutlined } from '@ant-design/icons';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
 import { PageContainer, ProTable } from '@ant-design/pro-components';
 import '@umijs/max';
-import { Button, message, Space, Typography } from 'antd';
+import { Button, message } from 'antd';
 import React, { useRef, useState } from 'react';
 
 /**
@@ -42,6 +46,52 @@ const ApiAdminPage: React.FC = () => {
     } catch (error: any) {
       hide();
       message.error('删除失败，' + error.message);
+      return false;
+    }
+  };
+
+  /**
+   * 发布接口
+   *
+   * @param row
+   */
+  const handleOnline = async (record: API.IdRequest) => {
+    const hide = message.loading('正在发布');
+    if (!record) return true;
+    try {
+      await onlineInterfaceInfoUsingPost({
+        id: record.id as any,
+      });
+      hide();
+      message.success('发布成功');
+      actionRef?.current?.reload();
+      return true;
+    } catch (error: any) {
+      hide();
+      message.error('发布失败，' + error.message);
+      return false;
+    }
+  };
+
+  /**
+   * 下线接口
+   *
+   * @param row
+   */
+  const handleOffline = async (record: API.IdRequest) => {
+    const hide = message.loading('正在下线');
+    if (!record) return true;
+    try {
+      await offlineInterfaceInfoUsingPost({
+        id: record.id as any,
+      });
+      hide();
+      message.success('下线成功');
+      actionRef?.current?.reload();
+      return true;
+    } catch (error: any) {
+      hide();
+      message.error('下线失败，' + error.message);
       return false;
     }
   };
@@ -99,7 +149,6 @@ const ApiAdminPage: React.FC = () => {
           text: '开启',
           status: 'Processing',
         },
-
       },
     },
     {
@@ -128,18 +177,42 @@ const ApiAdminPage: React.FC = () => {
         >
           修改
         </a>,
-         <a
-         key="config"
-         onClick={() => {
-          //console.log(record);
-          handleDelete(record);
-        }}
-       >
-        删除
-       </a>,
+        record.status === 0 ? (
+          <a
+            onClick={() => {
+              // setUpdateModalVisible(true);
+              // setCurrentRow(record);
+              handleOnline(record);
+            }}
+          >
+            发布
+          </a>
+        ) : null,
+        <Button
+          type="text"
+          danger
+          onClick={() => {
+            //console.log(record);
+            handleDelete(record);
+          }}
+        >
+          删除
+        </Button>,
+
+        record.status === 1 ? (
+          <Button
+            type="text"
+            danger
+            onClick={() => {
+              //console.log(record);
+              handleOffline(record);
+            }}
+          >
+            下线
+          </Button>
+        ) : null,
       ],
     },
-
   ];
   return (
     <PageContainer>
