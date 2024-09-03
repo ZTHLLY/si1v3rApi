@@ -59,6 +59,16 @@ public class InterfaceInfoServiceImpl extends ServiceImpl<InterfaceInfoMapper, I
 
     @Override
     public InterfaceInfoVO getInterfaceInfoVO(InterfaceInfo interfaceInfo, HttpServletRequest request) {
+        Long id = interfaceInfo.getId();
+        String name = interfaceInfo.getName();
+        String description = interfaceInfo.getDescription();
+        String url = interfaceInfo.getUrl();
+        String method = interfaceInfo.getMethod();
+
+        InterfaceInfoVO interfaceInfoVO=new InterfaceInfoVO();
+
+
+
         return null;
     }
 

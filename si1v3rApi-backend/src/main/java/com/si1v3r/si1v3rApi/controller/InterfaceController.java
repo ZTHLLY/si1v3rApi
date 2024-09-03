@@ -218,7 +218,7 @@ public class InterfaceController {
      * 下线（仅管理员）
      *
      * @param idRequest
-     * @return
+     * @return BaseResponse
      */
     @PostMapping("/offline")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
