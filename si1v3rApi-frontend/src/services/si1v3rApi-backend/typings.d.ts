@@ -179,17 +179,16 @@ declare namespace API {
   };
 
   type InterfaceInfoVO = {
-    content?: string;
     createTime?: string;
-    favourNum?: number;
-    hasFavour?: boolean;
-    hasThumb?: boolean;
+    description?: string;
     id?: number;
-    tagList?: string[];
-    thumbNum?: number;
-    title?: string;
+    method?: string;
+    name?: string;
+    requestHeader?: string;
+    responseHeader?: string;
+    status?: number;
     updateTime?: string;
-    user?: UserVO;
+    url?: string;
     userId?: number;
   };
 

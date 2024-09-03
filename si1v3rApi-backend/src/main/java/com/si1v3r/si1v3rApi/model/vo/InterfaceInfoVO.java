@@ -23,27 +23,42 @@ public class InterfaceInfoVO implements Serializable {
     private Long id;
 
     /**
-     * 标题
+     * 名称
      */
-    private String title;
+    private String name;
 
     /**
-     * 内容
+     * 描述
      */
-    private String content;
+    private String description;
 
     /**
-     * 点赞数
+     * 接口地址
      */
-    private Integer thumbNum;
+    private String url;
 
     /**
-     * 收藏数
+     * 请求头
      */
-    private Integer favourNum;
+    private String requestHeader;
 
     /**
-     * 创建用户 id
+     * 响应头
+     */
+    private String responseHeader;
+
+    /**
+     * 接口状态（0-关闭，1-开启）
+     */
+    private Integer status;
+
+    /**
+     * 请求类型
+     */
+    private String method;
+
+    /**
+     * 创建人
      */
     private Long userId;
 
@@ -57,25 +72,11 @@ public class InterfaceInfoVO implements Serializable {
      */
     private Date updateTime;
 
-    /**
-     * 标签列表
-     */
-    private List<String> tagList;
 
-    /**
-     * 创建人信息
-     */
-    private UserVO user;
 
-    /**
-     * 是否已点赞
-     */
-    private Boolean hasThumb;
 
-    /**
-     * 是否已收藏
-     */
-    private Boolean hasFavour;
+
+
 
     /**
      * 包装类转对象

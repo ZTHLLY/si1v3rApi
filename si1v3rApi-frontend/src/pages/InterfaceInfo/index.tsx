@@ -1,7 +1,7 @@
 import { getInterfaceInfoVoByIdUsingGet } from '@/services/si1v3rApi-backend/interfaceController';
 import { PageContainer } from '@ant-design/pro-components';
 import { useModel, useParams } from '@umijs/max';
-import { message, theme } from 'antd';
+import { Card, Descriptions, message, theme } from 'antd';
 import React, { useEffect, useState } from 'react';
 
 const Welcome: React.FC = () => {
@@ -35,10 +35,26 @@ const Welcome: React.FC = () => {
     loadData();
   }, []);
 
+
+
   return (
-    <PageContainer title="check the detail of the Interface">
-      啊这是要隐藏的页面
-      {JSON.stringify(data)}
+    <PageContainer title="detail of the Interface">
+      <Card>
+        {data ? (
+          <Descriptions title={data?.name} column={1}>
+            <Descriptions.Item label="status">{data.status? 'able': 'closed'}</Descriptions.Item>
+            <Descriptions.Item label="method">{data.method}</Descriptions.Item>
+            <Descriptions.Item label="url">{data.url}</Descriptions.Item>
+            <Descriptions.Item label="requestHeader">{data.requestHeader}</Descriptions.Item>
+            <Descriptions.Item label="responseHeader">{data.responseHeader}</Descriptions.Item>
+            <Descriptions.Item label="createTime">{data.createTime}</Descriptions.Item>
+            <Descriptions.Item label="updateTime">{data.updateTime}</Descriptions.Item>
+            <Descriptions.Item label="description">{data.description}</Descriptions.Item>
+          </Descriptions>
+        ) : (
+          <>接口不存在</>
+        )}
+      </Card>
     </PageContainer>
   );
 };
