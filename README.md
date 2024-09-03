@@ -12,8 +12,10 @@ yarn
 
 #### 本地运行项目
 
+本地启动项目如果不需要mock的虚拟数据，使用命令
+
 ```
-yarn dev
+yarn start
 ```
 
 至此运行前端在地址http://localhost:8000
