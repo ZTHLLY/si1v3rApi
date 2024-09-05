@@ -2,12 +2,14 @@ package com.si1v3r.si1v3rApi.controller;
 
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.google.gson.Gson;
 import com.si1v3r.si1v3rApi.annotation.AuthCheck;
 import com.si1v3r.si1v3rApi.common.*;
 import com.si1v3r.si1v3rApi.constant.UserConstant;
 import com.si1v3r.si1v3rApi.exception.BusinessException;
 import com.si1v3r.si1v3rApi.exception.ThrowUtils;
 import com.si1v3r.si1v3rApi.model.dto.interfaceinfo.InterfaceInfoAddRequest;
+import com.si1v3r.si1v3rApi.model.dto.interfaceinfo.InterfaceInfoInvokeRequest;
 import com.si1v3r.si1v3rApi.model.dto.interfaceinfo.InterfaceInfoQueryRequest;
 import com.si1v3r.si1v3rApi.model.dto.interfaceinfo.InterfaceInfoUpdateRequest;
 import com.si1v3r.si1v3rApi.model.entity.InterfaceInfo;
@@ -20,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 import com.si1v3r.si1v3rapiclientsdk.client.Si1v3rApiClient;
+
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
@@ -243,6 +246,41 @@ public class InterfaceController {
 
         return ResultUtils.success(result);
     }
+
+
+    /**
+     * 测试调用
+     *
+     * @param interfaceInfoInvokeRequest request
+     * @return BaseResponse
+     */
+    @PostMapping("/invoke")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
+    public BaseResponse<Object> offlineInterfaceInfo(@RequestBody InterfaceInfoInvokeRequest interfaceInfoInvokeRequest,HttpServletRequest request) {
+        if (interfaceInfoInvokeRequest == null || interfaceInfoInvokeRequest.getId()<=0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        Long id = interfaceInfoInvokeRequest.getId();
+        String requestParams = interfaceInfoInvokeRequest.getRequestParams();
+        InterfaceInfo oldinterfaceInfo = interfaceInfoService.getById(id);
+        //判断是否存在
+        if(oldinterfaceInfo==null){
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
+        }
+        if(oldinterfaceInfo.getStatus()==InterfaceStatusEnum.OFFLINE.getValue()){
+            throw new BusinessException(ErrorCode.PARAMS_ERROR,"接口已下线");
+        }
+
+        User loginUser = userService.getLoginUser(request);
+        String assessKey=loginUser.getAssessKey();
+        String secretKey = loginUser.getSecretKey();
+
+        Gson gson=new Gson();
+        com.si1v3r.si1v3rapiclientsdk.model.User user = gson.fromJson(requestParams,com.si1v3r.si1v3rapiclientsdk.model.User.class);
+        String username = si1v3rApiClient.getUsernameByPost(user);
+        return ResultUtils.success(username);
+    }
+
 
 
 }
