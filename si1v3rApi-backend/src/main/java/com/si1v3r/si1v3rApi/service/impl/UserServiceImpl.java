@@ -1,6 +1,8 @@
 package com.si1v3r.si1v3rApi.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.RandomUtil;
+import cn.hutool.crypto.digest.DigestUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.si1v3r.si1v3rApi.common.ErrorCode;
@@ -40,7 +42,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     /**
      * 盐值，混淆密码
      */
-    public static final String SALT = "yupi";
+    public static final String SALT = "si1v3r";
 
     @Override
     public long userRegister(String userAccount, String userPassword, String checkPassword) {
@@ -68,13 +70,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             }
             // 2. 加密
             String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
+            //4.生成assessKey和secretKey
+            String assessKey=DigestUtil.md5Hex(SALT+userAccount+RandomUtil.randomNumbers(5));
+            String secretKey=DigestUtil.md5Hex(SALT+userAccount+RandomUtil.randomNumbers(8));
             // 3. 插入数据
             User user = new User();
             user.setUserAccount(userAccount);
             user.setUserPassword(encryptPassword);
             user.setAssessKey("si1v3r");
             user.setSecretKey("abcdefgh");
-            boolean saveResult = this.save(user);
+            user.setAssessKey(assessKey);
+            user.setSecretKey(secretKey);
+           boolean saveResult = this.save(user);
             if (!saveResult) {
                 throw new BusinessException(ErrorCode.SYSTEM_ERROR, "注册失败，数据库错误");
             }

@@ -43,7 +43,6 @@ const Welcome: React.FC = () => {
   
   return (
     <PageContainer>
-      啊这是主页
       <List
       className="my-list"
       loading={loading}
