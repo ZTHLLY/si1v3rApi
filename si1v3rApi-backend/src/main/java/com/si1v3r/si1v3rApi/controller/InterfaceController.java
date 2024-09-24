@@ -255,8 +255,7 @@ public class InterfaceController {
      * @return BaseResponse
      */
     @PostMapping("/invoke")
-    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    public BaseResponse<Object> offlineInterfaceInfo(@RequestBody InterfaceInfoInvokeRequest interfaceInfoInvokeRequest,HttpServletRequest request) {
+    public BaseResponse<Object> invokeInterfaceInfo(@RequestBody InterfaceInfoInvokeRequest interfaceInfoInvokeRequest,HttpServletRequest request) {
         if (interfaceInfoInvokeRequest == null || interfaceInfoInvokeRequest.getId()<=0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -271,13 +270,15 @@ public class InterfaceController {
             throw new BusinessException(ErrorCode.PARAMS_ERROR,"接口已下线");
         }
 
+
         User loginUser = userService.getLoginUser(request);
         String assessKey=loginUser.getAssessKey();
         String secretKey = loginUser.getSecretKey();
+        Si1v3rApiClient tempClient=new Si1v3rApiClient(assessKey,secretKey);
 
         Gson gson=new Gson();
         com.si1v3r.si1v3rapiclientsdk.model.User user = gson.fromJson(requestParams,com.si1v3r.si1v3rapiclientsdk.model.User.class);
-        String username = si1v3rApiClient.getUsernameByPost(user);
+        String username = tempClient.getUsernameByPost(user);
         return ResultUtils.success(username);
     }
 
