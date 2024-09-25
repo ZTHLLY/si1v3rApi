@@ -15,13 +15,14 @@ import java.util.Map;
  * @author si1v3r
  */
 @RestController
-@RequestMapping("/name")
+@RequestMapping("/")
 public class NameController {
 
     // http://127.0.0.1:8080/hello?name=lisi
 
-    @GetMapping("/")
-    public String getName(String name) {
+    @GetMapping("/name")
+    public String getName(String name,HttpServletRequest httpServletRequest) {
+        System.out.println(httpServletRequest.getHeader("si1v3r"));
         return "Get Hello " + name;
     }
 

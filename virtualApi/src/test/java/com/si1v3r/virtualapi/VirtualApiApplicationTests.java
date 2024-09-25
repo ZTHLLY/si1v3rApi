@@ -6,6 +6,7 @@ import com.si1v3r.si1v3rapiclientsdk.client.Si1v3rApiClient;
 import com.si1v3r.si1v3rapiclientsdk.model.User;
 
 import javax.annotation.Resource;
+import java.util.ArrayList;
 
 @SpringBootTest
 class VirtualApiApplicationTests {
@@ -31,6 +32,12 @@ class VirtualApiApplicationTests {
         System.out.println(result);
         System.out.println(result2);
         System.out.println(result3);
+    }
+
+    @Test
+    void tempTest(){
+        ArrayList<Long> arrayList =new ArrayList<>();
+
     }
 
 }
