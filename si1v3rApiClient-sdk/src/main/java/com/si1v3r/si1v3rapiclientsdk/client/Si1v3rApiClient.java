@@ -28,7 +28,7 @@ public class Si1v3rApiClient {
         //可以单独传入http参数，这样参数会自动做URL编码，拼接在URL中
         HashMap<String, Object> paramMap = new HashMap<>();
         paramMap.put("name", name);
-        String result = HttpUtil.get("http://localhost:8002/api/name/", paramMap);
+        String result = HttpUtil.get("http://localhost:8123/api/", paramMap);
         System.out.println(result);
         return result;
     }
@@ -37,7 +37,7 @@ public class Si1v3rApiClient {
         //可以单独传入http参数，这样参数会自动做URL编码，拼接在URL中
         HashMap<String, Object> paramMap = new HashMap<>();
         paramMap.put("name", name);
-        String result = HttpUtil.post("http://localhost:8002/api/name/", paramMap);
+        String result = HttpUtil.post("http://localhost:8123/api/name/", paramMap);
         System.out.println(result);
         return result;
     }
@@ -75,7 +75,7 @@ public class Si1v3rApiClient {
 
     public String getUsernameByPost( User user) {
         String json = JSONUtil.toJsonStr(user);
-        HttpResponse httpResponse = HttpRequest.post("http://localhost:8002/api/name/user")
+        HttpResponse httpResponse = HttpRequest.post("http://localhost:8123/api/user")
                 .addHeaders(setKeys(json))
                 .body(json)
                 .execute();

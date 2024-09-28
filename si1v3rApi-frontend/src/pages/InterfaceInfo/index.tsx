@@ -1,12 +1,18 @@
-import { getInterfaceInfoVoByIdUsingGet } from '@/services/si1v3rApi-backend/interfaceController';
+import {
+  getInterfaceInfoVoByIdUsingGet,
+  invokeInterfaceInfoUsingPost,
+} from '@/services/si1v3rApi-backend/interfaceController';
 import { PageContainer } from '@ant-design/pro-components';
 import { useModel, useParams } from '@umijs/max';
-import { Card, Descriptions, message, theme,Form, Checkbox, Button,Input } from 'antd';
+import { Button, Card, Descriptions, Divider, Form, Input, message, theme } from 'antd';
 import React, { useEffect, useState } from 'react';
 
 const Welcome: React.FC = () => {
   const [loading, setLoading] = useState(false);
+  const [Invokeloading, setInvokeLoading] = useState(false);
+
   const [data, setdata] = useState<API.InterfaceInfo>();
+  const [Invokers, setInvokers] = useState();
   const params = useParams();
   const { token } = theme.useToken();
   const { initialState } = useModel('@@initialState');
@@ -35,8 +41,23 @@ const Welcome: React.FC = () => {
     loadData();
   }, []);
 
-  const onFinish = () => {
-    console.log('Success:');
+  const onFinish = async (data: any) => {
+    setInvokeLoading(true);
+    if (!params.id) {
+      message.error('参数不存在');
+      return;
+    }
+    try {
+      const res = await invokeInterfaceInfoUsingPost({ id: params.id, ...data });
+
+      //console.log(res);
+      setInvokeLoading(false);
+      setInvokers(res.data);
+      message.success('invoke success');
+      return true;
+    } catch (error: any) {
+      message.error('option error:', error);
+    }
   };
 
   return (
@@ -58,22 +79,11 @@ const Welcome: React.FC = () => {
           <>接口不存在</>
         )}
       </Card>
-
       <Card>
-        <Form
-          name="invoke"
-          layout='vertical'
-          onFinish={onFinish}
-
-        >
-          <Form.Item
-            label="requestParams"
-            name="requestParams"
-          >
+        <Form name="invoke" layout="vertical" onFinish={onFinish}>
+          <Form.Item label="requestParams" name="requestParams">
             <Input.TextArea />
           </Form.Item>
-
-
 
           <Form.Item
             wrapperCol={{
@@ -84,9 +94,10 @@ const Welcome: React.FC = () => {
               调用
             </Button>
           </Form.Item>
-
         </Form>
       </Card>
+      <Divider />
+      <Card>{Invokers}</Card>
     </PageContainer>
   );
 };

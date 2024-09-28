@@ -12,10 +12,6 @@ spring:
           filters:
             - AddRequestHeader=si1v3r, shuai
             - AddRequestParameter=name, blue
-            - name: CircuitBreaker
-              args:
-                name: myCircuitBreaker
-                fallbackUri: forward:/inCaseOfFailureUseThis
             - RewritePath=/consumingServiceEndpoint, /backingServiceEndpoint
 
 
