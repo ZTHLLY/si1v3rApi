@@ -7,7 +7,7 @@ import java.io.Serializable;
 import java.util.Date;
 
 /**
- * 用户调用接口关系表
+ * 用户调用接口关系
  * @TableName user_interface_info
  */
 @TableName(value ="user_interface_info")
@@ -20,12 +20,12 @@ public class UserInterfaceInfo implements Serializable {
     private Long id;
 
     /**
-     * 调用用户Id
+     * 调用用户 id
      */
     private Long userId;
 
     /**
-     * 接口Id
+     * 接口 id
      */
     private Long interfaceInfoId;
 
@@ -35,7 +35,12 @@ public class UserInterfaceInfo implements Serializable {
     private Integer totalNum;
 
     /**
-     * 0-正常 ，1-禁用
+     * 剩余调用次数
+     */
+    private Integer leftNum;
+
+    /**
+     * 0-正常，1-禁用
      */
     private Integer status;
 

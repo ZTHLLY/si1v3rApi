@@ -9,6 +9,7 @@
             <result property="userId" column="userId" jdbcType="BIGINT"/>
             <result property="interfaceInfoId" column="interfaceInfoId" jdbcType="BIGINT"/>
             <result property="totalNum" column="totalNum" jdbcType="INTEGER"/>
+            <result property="leftNum" column="leftNum" jdbcType="INTEGER"/>
             <result property="status" column="status" jdbcType="INTEGER"/>
             <result property="createTime" column="createTime" jdbcType="TIMESTAMP"/>
             <result property="updateTime" column="updateTime" jdbcType="TIMESTAMP"/>
@@ -17,7 +18,7 @@
 
     <sql id="Base_Column_List">
         id,userId,interfaceInfoId,
-        totalNum,status,createTime,
-        updateTime,isDelete
+        totalNum,leftNum,status,
+        createTime,updateTime,isDelete
     </sql>
 </mapper>
