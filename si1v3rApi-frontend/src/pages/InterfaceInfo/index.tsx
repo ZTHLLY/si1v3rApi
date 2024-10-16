@@ -61,7 +61,7 @@ const Welcome: React.FC = () => {
   };
 
   return (
-    <PageContainer title="detail of the Interface">
+    <PageContainer title="Detail of the Interface">
       <Card>
         {data ? (
           <Descriptions title={data?.name} column={1}>

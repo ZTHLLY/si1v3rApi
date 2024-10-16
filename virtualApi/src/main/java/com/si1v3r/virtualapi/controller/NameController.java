@@ -60,7 +60,8 @@ public class NameController {
         }
         //这里其实还要校验别的像随机数啊什么有的没的，我先不校验了
 
-        return "Post hello"+ user.getName()+"by post user";
+        String result= "Post hello"+ user.getName()+"by post user";
+        return result;
     }
 
 }

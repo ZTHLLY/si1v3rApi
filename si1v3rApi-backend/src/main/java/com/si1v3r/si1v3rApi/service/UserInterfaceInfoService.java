@@ -12,4 +12,12 @@ import com.si1v3r.si1v3rApi.model.entity.UserInterfaceInfo;
 public interface UserInterfaceInfoService extends IService<UserInterfaceInfo> {
     void validUserInterfaceInfo(UserInterfaceInfo userinterfaceInfo, boolean add);
 
+    /**
+     * 接口调用统计
+     * @param interfaceInfoId
+     * @param userId
+     * @return
+     */
+    boolean invokeCount(long interfaceInfoId,long userId);
+
 }
