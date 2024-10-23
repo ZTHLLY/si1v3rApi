@@ -1,6 +1,6 @@
 package com.si1v3r.si1v3rapigateway;
 
-import com.si1v3r.project.provider.DemoService;
+import com.si1v3r.si1v3rApi.provider.DemoService;
 import org.apache.dubbo.config.annotation.DubboReference;
 import org.apache.dubbo.config.spring.context.annotation.EnableDubbo;
 import org.springframework.boot.SpringApplication;
