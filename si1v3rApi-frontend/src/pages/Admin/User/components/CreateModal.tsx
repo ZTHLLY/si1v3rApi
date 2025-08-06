@@ -16,15 +16,15 @@ interface Props {
  * @param fields
  */
 const handleAdd = async (fields: API.UserAddRequest) => {
-  const hide = message.loading('正在添加');
+  const hide = message.loading('Creating...');
   try {
     await addUserUsingPost(fields);
     hide();
-    message.success('创建成功');
+    message.success('Create success');
     return true;
   } catch (error: any) {
     hide();
-    message.error('创建失败，' + error.message);
+    message.error('Create failed: ' + error.message);
     return false;
   }
 };
@@ -40,7 +40,7 @@ const CreateModal: React.FC<Props> = (props) => {
   return (
     <Modal
       destroyOnClose
-      title={'创建'}
+      title={'Create'}
       open={visible}
       footer={null}
       onCancel={() => {
