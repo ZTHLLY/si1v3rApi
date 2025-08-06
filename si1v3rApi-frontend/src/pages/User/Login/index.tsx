@@ -31,7 +31,7 @@ const Login: React.FC = () => {
         ...values,
       });
 
-      const defaultLoginSuccessMessage = '登录成功！';
+      const defaultLoginSuccessMessage = 'login success!';
       message.success(defaultLoginSuccessMessage);
       // 保存已登录用户信息
       setInitialState({
@@ -42,7 +42,7 @@ const Login: React.FC = () => {
       history.push(urlParams.get('redirect') || '/');
       return;
     } catch (error: any) {
-      const defaultLoginFailureMessage = `登录失败，${error.message}`;
+      const defaultLoginFailureMessage = `login failed: ${error.message}`;
       message.error(defaultLoginFailureMessage);
     }
   };
@@ -51,7 +51,7 @@ const Login: React.FC = () => {
     <div className={containerClassName}>
       <Helmet>
         <title>
-          {'登录'}- {Settings.title}
+          {'Login'}- {Settings.title}
         </title>
       </Helmet>
       <div
@@ -66,13 +66,18 @@ const Login: React.FC = () => {
             maxWidth: '75vw',
           }}
           logo={<img alt="logo" style={{ height: '100%' }} src="/logo.svg" />}
-          title="鱼皮前端万用模板"
-          subTitle={'快速开发属于自己的前端项目'}
+          title="API platform"
+          subTitle={'check your API and data here!'}
           initialValues={{
             autoLogin: true,
           }}
           onFinish={async (values) => {
             await handleSubmit(values as API.UserLoginRequest);
+          }}
+          submitter={{
+            searchConfig: {
+              submitText: 'Login',
+            },
           }}
         >
           <Tabs
@@ -82,7 +87,7 @@ const Login: React.FC = () => {
             items={[
               {
                 key: 'account',
-                label: '账户密码登录',
+                label: 'login with account',
               },
             ]}
           />
@@ -94,11 +99,11 @@ const Login: React.FC = () => {
                   size: 'large',
                   prefix: <UserOutlined />,
                 }}
-                placeholder={'请输入账号'}
+                placeholder={'Administrator account: admin'}
                 rules={[
                   {
                     required: true,
-                    message: '账号是必填项！',
+                    message: 'account is required!',
                   },
                 ]}
               />
@@ -108,11 +113,11 @@ const Login: React.FC = () => {
                   size: 'large',
                   prefix: <LockOutlined />,
                 }}
-                placeholder={'请输入密码'}
+                placeholder={'password: 123456789'}
                 rules={[
                   {
                     required: true,
-                    message: '密码是必填项！',
+                    message: 'password is required!',
                   },
                 ]}
               />
@@ -123,9 +128,10 @@ const Login: React.FC = () => {
             style={{
               marginBottom: 24,
               textAlign: 'right',
+              
             }}
           >
-            <Link to="/user/register">新用户注册</Link>
+            <Link to="/user/register">new user register</Link>
           </div>
         </LoginForm>
       </div>

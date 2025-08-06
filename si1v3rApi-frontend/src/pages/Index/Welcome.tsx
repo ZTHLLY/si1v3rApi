@@ -29,7 +29,7 @@ const Welcome: React.FC = () => {
 
     } catch (error: any) {
 
-      message.error('请求失败,'+error.message);
+      message.error('request failed: '+error.message);
       return false;
     }
     setLoading(false);
