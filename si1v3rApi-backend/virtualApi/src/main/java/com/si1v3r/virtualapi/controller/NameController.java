@@ -29,7 +29,7 @@ public class NameController {
     // http://127.0.0.1:8080/user
     @PostMapping("/name")
     public String postName(@RequestParam String name) {
-        return "Post hello"+ name;
+        return "Post hello "+ name;
     }
 
     @PostMapping("/user")
@@ -60,7 +60,7 @@ public class NameController {
         }
         //这里其实还要校验别的像随机数啊什么有的没的，我先不校验了
 
-        String result= "Post hello"+ user.getName()+"by post user";
+        String result= "Post hello "+ user.getName()+" by post user";
         return result;
     }
 
