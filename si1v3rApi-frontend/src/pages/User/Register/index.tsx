@@ -36,7 +36,7 @@ const UserRegisterPage: React.FC = () => {
     // 1. 判断密码是否一致
     const { userPassword, checkPassword } = values;
     if (userPassword !== checkPassword) {
-      message.error('二次输入的密码不一致');
+      message.error('The two passwords entered are inconsistent');
       return;
     }
 
@@ -46,12 +46,12 @@ const UserRegisterPage: React.FC = () => {
         ...values,
       });
 
-      const defaultLoginSuccessMessage = '注册成功！';
+      const defaultLoginSuccessMessage = 'register success!';
       message.success(defaultLoginSuccessMessage);
       history.push('/user/login');
       return;
     } catch (error: any) {
-      const defaultLoginFailureMessage = `注册失败，${error.message}`;
+      const defaultLoginFailureMessage = `register failed: ${error.message}`;
       message.error(defaultLoginFailureMessage);
     }
   };
@@ -60,7 +60,7 @@ const UserRegisterPage: React.FC = () => {
     <div className={containerClassName}>
       <Helmet>
         <title>
-          {'注册'}- {Settings.title}
+          {'Register'}- {Settings.title}
         </title>
       </Helmet>
       <div
@@ -75,14 +75,14 @@ const UserRegisterPage: React.FC = () => {
             maxWidth: '75vw',
           }}
           logo={<img alt="logo" style={{ height: '100%' }} src="/logo.svg" />}
-          title="鱼厂招聘系统 - 注册"
-          subTitle={'高效招聘、爽快求职'}
+          title="Api platform - register"
+          subTitle={'Create! Manage! Share!'}
           initialValues={{
             autoLogin: true,
           }}
           submitter={{
             searchConfig: {
-              submitText: '注册',
+              submitText: 'Register',
             },
           }}
           onFinish={async (values) => {
@@ -96,7 +96,7 @@ const UserRegisterPage: React.FC = () => {
             items={[
               {
                 key: 'account',
-                label: '新用户注册',
+                label: 'new user register',
               },
             ]}
           />
@@ -108,11 +108,11 @@ const UserRegisterPage: React.FC = () => {
                   size: 'large',
                   prefix: <UserOutlined />,
                 }}
-                placeholder={'请输入账号'}
+                placeholder={'enter your account here'}
                 rules={[
                   {
                     required: true,
-                    message: '账号是必填项！',
+                    message: 'account is required!',
                   },
                 ]}
               />
@@ -122,11 +122,11 @@ const UserRegisterPage: React.FC = () => {
                   size: 'large',
                   prefix: <LockOutlined />,
                 }}
-                placeholder={'请输入密码'}
+                placeholder={'enter your password here'}
                 rules={[
                   {
                     required: true,
-                    message: '密码是必填项！',
+                    message: 'password is required!',
                   },
                 ]}
               />
@@ -136,11 +136,11 @@ const UserRegisterPage: React.FC = () => {
                   size: 'large',
                   prefix: <LockOutlined />,
                 }}
-                placeholder={'请再次确认密码'}
+                placeholder={'please confirm your password'}
                 rules={[
                   {
                     required: true,
-                    message: '确认密码是必填项！',
+                    message: 'confirm password is required!',
                   },
                 ]}
               />
@@ -153,7 +153,7 @@ const UserRegisterPage: React.FC = () => {
               textAlign: 'right',
             }}
           >
-            <Link to="/user/login">老用户登录</Link>
+            <Link to="/user/login">old user login</Link>
           </div>
         </LoginForm>
       </div>

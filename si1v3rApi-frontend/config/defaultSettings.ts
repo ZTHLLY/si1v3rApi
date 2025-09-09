@@ -15,7 +15,7 @@ const Settings: ProLayoutProps & {
   fixedHeader: false,
   fixSiderbar: true,
   colorWeak: false,
-  title: 'Api开放平台',
+  title: 'Api management system',
   pwa: true,
   iconfontUrl: '',
   token: {

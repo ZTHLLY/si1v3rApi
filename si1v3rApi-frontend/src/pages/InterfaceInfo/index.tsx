@@ -19,7 +19,7 @@ const Welcome: React.FC = () => {
 
   const loadData = async () => {
     if (!params.id) {
-      message.error('参数不存在');
+      message.error('parameters not found');
       return;
     }
 
@@ -31,7 +31,7 @@ const Welcome: React.FC = () => {
 
       setdata(res.data);
     } catch (error: any) {
-      message.error('请求失败,' + error.message);
+      message.error('request failed: ' + error.message);
       return false;
     }
     setLoading(false);
@@ -44,7 +44,7 @@ const Welcome: React.FC = () => {
   const onFinish = async (data: any) => {
     setInvokeLoading(true);
     if (!params.id) {
-      message.error('参数不存在');
+      message.error('parameter not found');
       return;
     }
     try {
@@ -76,7 +76,7 @@ const Welcome: React.FC = () => {
             <Descriptions.Item label="description">{data.description}</Descriptions.Item>
           </Descriptions>
         ) : (
-          <>接口不存在</>
+          <>Interface not found</>
         )}
       </Card>
       <Card>
@@ -91,7 +91,7 @@ const Welcome: React.FC = () => {
             }}
           >
             <Button type="primary" htmlType="submit">
-              调用
+              Invoke
             </Button>
           </Form.Item>
         </Form>

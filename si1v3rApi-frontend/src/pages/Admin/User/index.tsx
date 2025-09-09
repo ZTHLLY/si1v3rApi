@@ -28,19 +28,19 @@ const UserAdminPage: React.FC = () => {
    * @param row
    */
   const handleDelete = async (row: API.User) => {
-    const hide = message.loading('正在删除');
+    const hide = message.loading('deleting');
     if (!row) return true;
     try {
       await deleteUserUsingPost({
         id: row.id as any,
       });
       hide();
-      message.success('删除成功');
+      message.success('delete success');
       actionRef?.current?.reload();
       return true;
     } catch (error: any) {
       hide();
-      message.error('删除失败，' + error.message);
+      message.error('deleting failed: ' + error.message);
       return false;
     }
   };
@@ -56,17 +56,17 @@ const UserAdminPage: React.FC = () => {
       hideInForm: true,
     },
     {
-      title: '账号',
+      title: 'Account',
       dataIndex: 'userAccount',
       valueType: 'text',
     },
     {
-      title: '用户名',
+      title: 'Username',
       dataIndex: 'userName',
       valueType: 'text',
     },
     {
-      title: '头像',
+      title: 'Avatar',
       dataIndex: 'userAvatar',
       valueType: 'image',
       fieldProps: {
@@ -75,24 +75,24 @@ const UserAdminPage: React.FC = () => {
       hideInSearch: true,
     },
     {
-      title: '简介',
+      title: 'Profile',
       dataIndex: 'userProfile',
       valueType: 'textarea',
     },
     {
-      title: '权限',
+      title: 'Permissions',
       dataIndex: 'userRole',
       valueEnum: {
         user: {
-          text: '用户',
+          text: 'User',
         },
         admin: {
-          text: '管理员',
+          text: 'Administrator',
         },
       },
     },
     {
-      title: '创建时间',
+      title: 'Create Time',
       sorter: true,
       dataIndex: 'createTime',
       valueType: 'dateTime',
@@ -100,7 +100,7 @@ const UserAdminPage: React.FC = () => {
       hideInForm: true,
     },
     {
-      title: '更新时间',
+      title: 'Update Time',
       sorter: true,
       dataIndex: 'updateTime',
       valueType: 'dateTime',
@@ -108,7 +108,7 @@ const UserAdminPage: React.FC = () => {
       hideInForm: true,
     },
     {
-      title: '操作',
+      title: 'Options',
       dataIndex: 'option',
       valueType: 'option',
       render: (_, record) => (
@@ -119,10 +119,10 @@ const UserAdminPage: React.FC = () => {
               setUpdateModalVisible(true);
             }}
           >
-            修改
+            Update
           </Typography.Link>
           <Typography.Link type="danger" onClick={() => handleDelete(record)}>
-            删除
+            Delete
           </Typography.Link>
         </Space>
       ),
@@ -145,7 +145,7 @@ const UserAdminPage: React.FC = () => {
               setCreateModalVisible(true);
             }}
           >
-            <PlusOutlined /> 新建
+            <PlusOutlined /> New User
           </Button>,
         ]}
         request={async (params, sort, filter) => {
