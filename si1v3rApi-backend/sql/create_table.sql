@@ -3,10 +3,10 @@
 # @from <a href="https://yupi.icu">编程导航知识星球</a>
 
 -- 创建库
-create database if not exists my_db;
+create database if not exists si1v3rApi;
 
 -- 切换库
-use my_db;
+use si1v3rApi;
 
 -- 用户表
 create table if not exists user
@@ -20,10 +20,13 @@ create table if not exists user
     userAvatar   varchar(1024)                          null comment '用户头像',
     userProfile  varchar(512)                           null comment '用户简介',
     userRole     varchar(256) default 'user'            not null comment '用户角色：user/admin/ban',
+    assessKey    varchar(256)                           null comment 'API access key',
+    secretKey    varchar(512)                           null comment 'API secret key',
     createTime   datetime     default CURRENT_TIMESTAMP not null comment '创建时间',
     updateTime   datetime     default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
     isDelete     tinyint      default 0                 not null comment '是否删除',
-    index idx_unionId (unionId)
+    index idx_unionId (unionId),
+    unique index uk_assessKey (assessKey)
 ) comment '用户' collate = utf8mb4_unicode_ci;
 
 -- 帖子表
@@ -65,3 +68,37 @@ create table if not exists post_favour
     index idx_postId (postId),
     index idx_userId (userId)
 ) comment '帖子收藏';
+
+-- 接口信息（url 保存网关路径，不包含协议和主机）
+create table if not exists interface_info
+(
+    id             bigint auto_increment comment 'id' primary key,
+    name           varchar(256)                       not null comment '名称',
+    description    varchar(256)                       null comment '描述',
+    url            varchar(512)                       not null comment '网关路径',
+    requestParams  text                               null comment '请求参数',
+    requestHeader  text                               null comment '请求头',
+    responseHeader text                               null comment '响应头',
+    status         int      default 0                 not null comment '0-关闭，1-开启',
+    method         varchar(256)                       not null comment '请求方法（大写）',
+    userId         bigint                             not null comment '创建人（管理员）',
+    createTime     datetime default CURRENT_TIMESTAMP not null comment '创建时间',
+    updateTime     datetime default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
+    isDelete       tinyint  default 0                 not null comment '是否删除',
+    index idx_url_method (url, method)
+) comment '接口信息' collate = utf8mb4_unicode_ci;
+
+-- 用户调用接口关系
+create table if not exists user_interface_info
+(
+    id              bigint auto_increment comment 'id' primary key,
+    userId          bigint                             not null comment '调用用户 id',
+    interfaceInfoId bigint                             not null comment '接口 id',
+    totalNum        int      default 0                 not null comment '累计已调用次数',
+    leftNum         int      default 0                 not null comment '剩余次数',
+    status          int      default 0                 not null comment '0-正常，1-禁用',
+    createTime      datetime default CURRENT_TIMESTAMP not null comment '创建时间',
+    updateTime      datetime default CURRENT_TIMESTAMP not null on update CURRENT_TIMESTAMP comment '更新时间',
+    isDelete        tinyint  default 0                 not null comment '是否删除',
+    unique index uk_user_interface (userId, interfaceInfoId)
+) comment '用户调用接口关系' collate = utf8mb4_unicode_ci;
