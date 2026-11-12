@@ -16,6 +16,12 @@
     </properties>
     <dependencies>
         <dependency>
+            <groupId>com.si1v3r</groupId>
+            <artifactId>si1v3rApi-common</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-gateway</artifactId>
         </dependency>

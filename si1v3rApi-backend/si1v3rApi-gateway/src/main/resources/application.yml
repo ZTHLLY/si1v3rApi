@@ -26,7 +26,8 @@ logging:
 dubbo:
   application:
     # 设置应用的名称
-    name: dubbo-springboot-demo-provider
+    name: si1v3rApi-gateway
+    qos-enable: false
   # 指定使用 Dubbo 协议，且端口设置为 -1，表示随机分配可用端口
   protocol:
     name: dubbo
