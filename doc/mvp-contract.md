@@ -1,4 +1,4 @@
-# si1v3rApi MVP 开发约定（v1）
+# si1v3rApi MVP 开发约定（v1.1）
 
 本文是 MVP 第一批任务（1、2、3、9、10、12）的**唯一共享约定**。所有 worker 必须遵守；如果发现约定有问题或无法实现，**先用 `ask` 向协调者提出，不要自行改约定**。
 
@@ -23,7 +23,7 @@
 
 ### 0.2 范围纪律
 - 只改本任务列出的内容。发现范围外的问题，写进汇报的"遗留问题"，不要顺手改。
-- 不改本约定文件（`doc/mvp-contract.md`）。
+- 不改本约定文件（`doc/mvp-contract.md`）。不要往 `doc/` 或仓库其他位置提交验收报告、日志等一次性文件；验收证据写在 worker_done 汇报里或仓库外的临时目录。
 - 不 push、不提 PR、不合并其他分支（除了开始时同步 `ZTHLLY/orchestrator`）。commit 由实现者在自己的分支上做，push 和 PR 由协调者负责。
 - 不往仓库里提交任何真实密钥、密码。示例值用明显的占位符（如 `<your-access-key>`）。
 
@@ -195,20 +195,47 @@ sign       = lowercaseHex(HMAC-SHA256(key = secretKey 的 UTF-8 字节, data = c
 - 实现放在 SDK 的 `com.si1v3r.si1v3rapiclientsdk.utils.SignUtils`，新增方法 `public static String sign(String method, String path, String rawQuery, byte[] body, String assessKey, String timestamp, String nonce, String secretKey)`。**由 T9 实现**（网关已依赖 SDK），T12 直接调用，不得另写一份。
 - 旧的 `SignUtils.getSign(Map, String)` 删除。
 
-### 3.3 网关校验规则
-- 4 个头任一缺失或格式不对 → 401。
+**固定测试向量**（协调者已用 openssl 独立验证；SDK 和网关的测试都必须包含它）：
+
+| 输入 | 值 |
+|---|---|
+| method / path / rawQuery | `POST` / `/api/user` / `name=Alice%20Smith&x=1` |
+| body（UTF-8） | `{"name":"Alice"}` |
+| bodyDigest | `3cba1e3cf23c8ce24b7e08171d823fbd9a4929aafd9f27516e30699d3a42026a` |
+| assessKey / timestamp / nonce | `test-access` / `1700000000` / `0123456789abcdef0123456789abcdef` |
+| secretKey | `test-secret` |
+| **sign** | `8789b341bc02a61bcc5830fe2faec700a368159ad1dd96b20b4850a251895a3b` |
+
+### 3.3 网关校验规则（v1.1 修订）
+校验顺序：**path 规范性 → 头格式 → 时间戳 → 请求体大小（Content-Length）→ 查用户 → 读请求体（带上限）→ 验签 → 判 ban → 登记 nonce**。先查用户再读请求体，让未知 key 不消耗内存。
+
+- **path 规范性**：`getURI().getRawPath()` 含以下任一内容即拒绝（大小写不敏感）→ 400：`//`、`/./`、`/../`、以 `/.` 或 `/..` 结尾、`;`、`\`、`%2e`、`%2f`、`%5c`、`%00`。
+- 4 个头任一缺失或格式不对 → 401。`timestamp` 必须是 1–12 位、无前导零的十进制数字；`nonce` 必须是 32 位小写十六进制。
 - `|now - timestamp| > 300` 秒 → 401。
-- nonce 在 300 秒内重复 → 401。MVP 用网关进程内带过期的缓存；多实例部署需要换 Redis（后续任务）。
-- `getInvokeUser` 返回 null，或 `userRole = ban` → 401 / 403（见 3.4）。
+- **请求体上限**：可配置 `si1v3r.gateway.max-body-bytes`，默认 `1048576`（1 MiB）。`Content-Length` 超限直接拒绝；读取时也要用带上限的读取（如 `DataBufferUtils.join(body, max)`），chunked 超限同样拒绝 → 413。
+- `getInvokeUser` 返回 null → 401；签名错误 → 401；签名正确但 `userRole = ban` → 403。
 - 签名比较用常量时间比较（`MessageDigest.isEqual`）。
+- **nonce 防重放**：
+  - 只有签名正确的请求才登记 nonce，登记必须原子（同一 nonce 并发只有一个成功）。
+  - nonce 按 `(assessKey, nonce)` 记录，保留到 **`max(now, timestamp) + 301` 秒**，保证在时间戳彻底失效之前 nonce 一直有效（防止边界重放和未来时间戳重放）。
+  - **每个 assessKey 的配额**：同时保留的 nonce 数不超过 `si1v3r.gateway.nonce-per-key-max`（默认 `10000`），超出只拒绝该 key → 429。
+  - **全局兜底**：总数不超过 `si1v3r.gateway.nonce-global-max`（默认 `500000`），超出 → 503（fail closed，不驱逐未过期的 nonce）。
+  - 过期清理不能在每个请求里全表扫描（用按过期时间排序的结构或定时清理）。
+  - MVP 用网关进程内缓存；多实例部署需要换 Redis（后续任务）。
+- **转发前移除鉴权头**：鉴权通过后，转发给下游的请求里删除 `assessKey`、`timestamp`、`nonce`、`sign` 四个头。
+- RPC 调用之后，后续链路要回到原来的调度线程（例如 `publishOn` 回事件循环），不要让下游过滤器在 boundedElastic 线程上执行。
 
 ### 3.4 网关错误响应
 HTTP 状态码 + JSON 体 `{"code": <int>, "message": "<string>"}`，`Content-Type: application/json`。
 
 | 场景 | HTTP | code |
 |---|---|---|
+| path 不规范 | 400 | 40000 |
 | 缺头 / 签名错 / 时间戳过期 / nonce 重复 / 用户不存在 | 401 | 40100 |
 | 用户被封禁 | 403 | 40300 |
+| 请求体超过上限 | 413 | 41300 |
+| 该 assessKey 的 nonce 配额已满 | 429 | 42900 |
+| nonce 全局容量已满 | 503 | 50300 |
 | 接口不存在 | 404 | 40400 |
 | 接口未上线 | 403 | 40301 |
 | 没有剩余次数或关系被禁用 | 403 | 40302 |
@@ -225,6 +252,7 @@ HTTP 状态码 + JSON 体 `{"code": <int>, "message": "<string>"}`，`Content-Ty
 | `AuthGlobalFilter` | T9 | `-100` | 读取并缓存请求体、校验签名/时间戳/nonce、查用户、判 ban；通过后把 `InvokeUser` 放进 `exchange.getAttributes()`，key 为常量 `GatewayAttrs.INVOKE_USER = "si1v3r.invokeUser"` |
 | `InterfaceInvokeGlobalFilter` | T10 | `-50` | 查接口、判上线、`hasLeftNum`；转发；响应状态为 2xx 时调用 `invokeCount`；记录响应日志 |
 
+- **T10 查接口必须用 `request.getURI().getRawPath()` 原样作为 `url` 参数**（AuthGlobalFilter 已保证它是规范的），与签名用的 path 完全一致；method 用 `request.getMethodValue()`。不得自行解码或规范化后再查。
 - 两个过滤器放在 `com.si1v3r.si1v3rapigateway.filter` 包；常量类 `GatewayAttrs` 和错误响应工具 `GatewayErrors` 放 `com.si1v3r.si1v3rapigateway.support`，由 **T9 创建**，T10 只复用。
 - T9 删除旧的 `CustomGlobalFilter`；它里面的响应日志装饰逻辑由 T10 在新过滤器里重写。T9 完成后、T10 之前，网关应能"鉴权通过即直接转发"。
 - 请求体在 T9 读取后必须重新包装进 exchange，保证下游还能拿到完整请求体。
