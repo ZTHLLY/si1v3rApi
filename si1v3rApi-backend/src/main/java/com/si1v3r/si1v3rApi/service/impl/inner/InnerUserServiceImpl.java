@@ -18,8 +18,8 @@ public class InnerUserServiceImpl implements InnerUserService {
         if (assessKey == null || assessKey.isEmpty()) { return null; }
         User user = userService.getOne(new QueryWrapper<User>()
                 .select("id", "assessKey", "secretKey", "userRole")
-                .eq("assessKey", assessKey).eq("isDelete", 0));
-        if (user == null) { return null; }
+                .eq("assessKey", assessKey));
+        if (user == null || !assessKey.equals(user.getAssessKey())) { return null; }
         InvokeUser result = new InvokeUser();
         result.setId(user.getId());
         result.setAssessKey(user.getAssessKey());

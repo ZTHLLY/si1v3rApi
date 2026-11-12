@@ -16,7 +16,7 @@ public class InnerUserInterfaceInfoServiceImpl implements InnerUserInterfaceInfo
     public boolean hasLeftNum(long interfaceInfoId, long userId) {
         return userInterfaceInfoService.count(new QueryWrapper<UserInterfaceInfo>()
                 .eq("interfaceInfoId", interfaceInfoId).eq("userId", userId)
-                .eq("status", 0).gt("leftNum", 0).eq("isDelete", 0)) > 0;
+                .eq("status", 0).gt("leftNum", 0)) > 0;
     }
 
     @Override
