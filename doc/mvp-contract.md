@@ -27,12 +27,20 @@
 - 不 push、不提 PR、不合并其他分支（除了开始时同步 `ZTHLLY/orchestrator`）。commit 由实现者在自己的分支上做，push 和 PR 由协调者负责。
 - 不往仓库里提交任何真实密钥、密码。示例值用明显的占位符（如 `<your-access-key>`）。
 
-### 0.3 构建环境（已知问题，必须处理）
-本机只有 JDK 25；没有 `mvn`，用 `si1v3rApi-backend/mvnw`（`./mvnw -f <module>/pom.xml ...`）。
-
-- SDK 的 `maven-compiler-plugin` 配的 `source/target=7`，JDK 25 不支持，需要改成 `1.8`（由 **T1** 顺手修，这是让后续所有任务能编译的前提）。
-- Lombok（Boot 2.7 默认 1.18.24）在 JDK 25 上注解处理失效，编译报 `cannot find symbol`（`log`、getter 等）。协调者已验证 `-Dlombok.version=1.18.42 -Dmaven.compiler.proc=full` **仍不够**。这个问题的处理方式见协调者在任务说明里的指示；在拿到指示前，不要自行升级 Spring Boot 或改大版本。
+### 0.3 构建环境（必须遵守）
+- **所有 Maven 命令都必须用 JDK 17**：先执行
+  `export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home`
+  系统默认的 JDK 25 编译不了本项目（Spring Boot 2.7 + Lombok 不支持），不要试图通过升级 Spring Boot/Lombok 来适配 JDK 25。
+- 本机没有 `mvn`，用 `si1v3rApi-backend/mvnw`：`cd si1v3rApi-backend && ./mvnw -B -f <module>/pom.xml ...`
+- SDK 的 `maven-compiler-plugin` 配的 `source/target=7`，JDK 17 不支持，改成 `1.8`（由 **T1** 顺手修，这是后续所有任务能编译的前提）。
+- 协调者已验证：JDK 17 + SDK 改为 1.8 后，SDK、backend、gateway、virtualApi 都能编译通过。
 - 构建顺序：SDK `install` → common `install`（T2 之后）→ backend / gateway / virtualApi `compile`/`test`。
+
+### 0.3.1 集成测试用的 Docker 容器
+允许用 Docker 临时启动 MySQL 8 和 Nacos 做集成测试，规则：
+- 容器名必须带任务前缀，如 `si1v3r-t1-mysql`、`si1v3r-t2-nacos`；宿主机端口用不冲突的端口（如 MySQL `13306`、Nacos `18848`），通过启动参数或测试 profile 覆盖连接地址，**不要为此修改仓库里的默认配置**。
+- 只操作自己创建的容器，测试结束后 `docker rm -f` 删除；不要动其他已有容器、镜像、volume。
+- 汇报里写明用了哪些容器和命令，以及是否已经删除。
 
 ### 0.4 每个任务的完成标准（Definition of Done）
 1. 本任务的验收标准全部满足。
