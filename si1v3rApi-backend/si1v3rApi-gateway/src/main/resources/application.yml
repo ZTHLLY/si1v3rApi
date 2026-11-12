@@ -9,10 +9,7 @@ spring:
           uri: http://localhost:8123
           predicates:
             - Path=/api/**
-          filters:
-            - AddRequestHeader=si1v3r, shuai
-            - AddRequestParameter=name, blue
-            - RewritePath=/consumingServiceEndpoint, /backingServiceEndpoint
+
 
 
 logging:
@@ -20,7 +17,7 @@ logging:
     org:
       springframework:
         cloud:
-          gateway: trace
+          gateway: info
 
 # 以下配置指定了应用的名称、使用的协议（Dubbo）、注册中心的类型（Nacos）和地址
 dubbo:
