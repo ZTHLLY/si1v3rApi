@@ -1,4 +1,4 @@
-# si1v3rApi MVP 开发约定（v1.2）
+# si1v3rApi MVP 开发约定（v1.3）
 
 本文是 MVP 第一批任务（1、2、3、9、10、12）的**唯一共享约定**。所有 worker 必须遵守；如果发现约定有问题或无法实现，**先用 `ask` 向协调者提出，不要自行改约定**。
 
@@ -285,3 +285,134 @@ HTTP 状态码 + JSON 体 `{"code": <int>, "message": "<string>"}`，`Content-Ty
 在线调试按接口 url 调用、用户密钥查看/重置、普通用户接口列表、前端改动、Redis、凭据外置、按接口动态路由、virtualApi 网络隔离、密码改 BCrypt、SQL 注入等安全修复。
 
 **已知过渡期影响**：T9 之后，backend 里用配置文件 `si1v3r.client` 固定 key（`admin01`）的"发布前校验"和"在线调试"会因为数据库里没有这个 key 而失败。这两个功能本来就有问题，会在后续任务（在线调试 / 密钥管理）里重做，本批次不修。
+
+---
+---
+
+# 第二批（v1.3）
+
+第二批 5 个任务。第 0 节通用规则（JDK 17、Docker 规则、范围纪律、完成标准、不提交验收报告）**继续适用**；下面只写增量。
+
+## B0. 第二批通用规则
+
+### B0.1 任务、分支与顺序
+| 波次 | 任务 | 分支 / worktree | 主要改动范围 |
+|---|---|---|---|
+| 1（并行） | S1 安全加固 | `ZTHLLY/feat-security-guard` | 用户登录注册/密码、admin 用户接口返回值、排序字段、日志、CORS/Cookie、`WxMpController` |
+| 1（并行） | S2 接口列表与接口管理 | `ZTHLLY/feat-user-api-list` | `InterfaceController`（除 `/invoke`）、接口相关 DTO/Service |
+| 1（并行） | S3 清理无用代码 + 我的调用统计 | `ZTHLLY/chro-clear-unused` | `user_interface_info` 全模块、SQL、重复前端目录、virtualApi 测试 |
+| 2 | S4 用户密钥 + 在线调试 | `ZTHLLY/feat-user-key` | 注册时密钥生成、密钥接口、`InterfaceController#/invoke`、backend 的 `si1v3r.client` 配置 |
+| 3 | S5 前端 | `ZTHLLY/feat-frontend-design` | `si1v3rApi-frontend/src`、`config/routes.ts` |
+
+- 开始时：`git merge ZTHLLY/orchestrator`（包含第一批全部代码 + 本约定）。
+- **文件归属**：同一波并行的任务只改自己范围内的文件。必须改别人范围的文件时，先 `ask` 协调者。波次之间靠合并 orchestrator 传递代码。
+- 每个任务放行后，协调者把分支合入 `ZTHLLY/orchestrator`；下一波开始时再同步。
+
+### B0.2 PR 方式（第二批起）
+- 每个任务的 PR 目标分支是 **`ZTHLLY/orchestrator`**（集成分支），放行后由协调者合并。
+- 第二批全部完成后，协调者提一个 `ZTHLLY/orchestrator → main` 的总 PR，交给用户合并。
+
+### B0.3 审查标准（MVP 级别）
+- 只有 **blocker** 才打回：主流程跑不通、可被直接利用的安全漏洞、数据丢失或错乱、编译/测试失败、违反约定导致其他任务接不上。
+- 其他 major / minor / nit 记录到 PR 的"已知限制"，不打回、不追加修补。
+
+### B0.4 通用接口约定（backend）
+- 所有新接口返回现有的 `BaseResponse<T>`（`ResultUtils.success(...)` / `BusinessException`），前缀 `/api`（context-path）。
+- "需要登录"用 `userService.getLoginUser(request)`；"仅管理员"用 `@AuthCheck(mustRole = UserConstant.ADMIN_ROLE)`。
+- 分页请求沿用 `PageRequest`（`current`、`pageSize`、`sortField`、`sortOrder`）。
+
+---
+
+## S1. 安全加固（feat-security-guard）
+
+1. **排序字段白名单**：`SqlUtils` 改为白名单方式，例如 `SqlUtils.validSortField(String sortField, Set<String> allowed)`。不在白名单里的排序字段直接忽略（不排序），不报错。`sortOrder` 只接受 `ascend`/`descend`，`null` 不能报 NPE。在 User、Post、InterfaceInfo 三处 `getQueryWrapper` 中使用，白名单只放安全的列：`id`、`createTime`、`updateTime`，Post 另加 `thumbNum`、`favourNum`。**不要改 `UserInterfaceInfo` 相关代码**（归 S3）。
+2. **敏感字段不出接口**：
+   - `/user/get`、`/user/list/page`（管理员）改为返回 `AdminUserVO`：包含 `User` 除 `userPassword`、`secretKey` 以外的所有字段，`assessKey` 可以保留。
+   - `/user/list/page/vo` 改为需要登录。
+3. **密码改 BCrypt**：
+   - 加 `spring-security-crypto` 依赖（只加这一个，不引入 Spring Security 框架）。
+   - 注册和管理员新增用户时，用 BCrypt 存密码。
+   - 登录时：存储值是 BCrypt 的，用 BCrypt 校验；存储值是旧的 32 位 MD5 的，按旧算法 `md5(SALT + pw)` 校验，**校验通过后立刻改存 BCrypt**（透明升级）。
+   - `/user/add` 不再使用固定默认密码。`UserAddRequest` 增加 `userPassword` 字段，必填，至少 8 位。
+4. **封禁生效**：`userRole=ban` 的用户密码登录失败（报"账号已封禁"）；`getLoginUser` 遇到 ban 用户也视为未登录。
+5. **会话**：登录成功后 `request.changeSessionId()`；`application.yml` 配置 session cookie 为 `http-only: true`、`same-site: lax`。
+6. **CORS**：只允许配置项 `si1v3r.cors.allowed-origins` 中的来源（逗号分隔，默认 `http://localhost:8000`），继续允许携带凭证。
+7. **日志**：
+   - `LogInterceptor` 不再打印请求参数，只记录 requestId、path、耗时。
+   - MyBatis 的 `log-impl: StdOutImpl` 从默认配置中删除。
+8. **`/setMenu`**：改为 POST，并且仅管理员可用。
+
+## S2. 接口列表与接口管理（feat-user-api-list）
+
+1. **普通用户接口列表** `POST /interfaceInfo/list/page/vo`：
+   - 需要登录。
+   - 只返回 `status=1`（已上线）且未删除的接口。
+   - `pageSize` 最大 20，超过报参数错误。
+   - 支持按 `name`、`description` 模糊搜索。
+   - 返回 `Page<InterfaceInfoVO>`。
+   - **不要改 `InterfaceInfoServiceImpl.getQueryWrapper`**（排序白名单归 S1）。上线过滤可以在 controller 里给 wrapper 追加条件，或者新加一个 service 方法。
+2. **接口管理只限管理员**：
+   - `/interfaceInfo/add`、`/interfaceInfo/delete` 加 `@AuthCheck(admin)`。
+   - `delete` 去掉"本人或管理员"的判断。
+   - `InterfaceInfoAddRequest` 删除 `id` 字段。
+3. **新增和修改接口时的校验**：
+   - `url` 必须以 `/api/` 开头，并且是规范路径，规则同约定 3.3 的 path 规范性检查。
+   - `method` 统一转成大写，只允许 `GET`、`POST`、`PUT`、`DELETE`。
+   - `name` 不能为空。
+4. **上线 `/online`**：删除"上线前通过网关调一次 `/api/user`"的校验。网关会拒绝未上线的接口，这个校验做不到；改为只检查接口是否存在、`url`/`method` 是否合法，然后设为上线。删除 `InterfaceController` 里不再使用的 `si1v3rApiClient` 注入。**不要改 `/invoke` 方法**（归 S4）。
+5. `InterfaceInfoVO` 对普通用户只暴露这些字段：`id`、`name`、`description`、`url`、`method`、`requestParams`、`requestHeader`、`responseHeader`、`status`、`createTime`。不包含 `userId`。
+
+## S3. 清理无用代码 + 我的调用统计（chro-clear-unused）
+
+1. **彻底删除 `user_interface_info` 中的 `leftNum`、`status`**：
+   - 改动范围：实体、DTO（Add/Update/Query）、`validUserInterfaceInfo`、mapper XML、`create_table.sql`。
+   - 新增 `sql/migrate_mvp_v2.sql`：可以重复执行，删除这两列（先检查列是否存在）。
+   - `UserInterfaceInfoController` 中只保留管理员的 `get`、`delete`，以及下面第 2 项。`add`、`update` 删除：计数只能由网关写入，不允许手动修改。
+2. **我的调用统计** `GET /userInterfaceInfo/my/list`：
+   - 需要登录。
+   - 返回当前用户的 `List<MyInvokeStatVO>`，字段为 `interfaceInfoId`、`interfaceName`、`url`、`method`、`totalNum`、`updateTime`（最后一次调用时间）。
+   - 只包含未删除的记录，按 `totalNum` 降序排列。
+   - 接口已被删除的记录也要返回，`interfaceName` 返回 `null`。
+3. 删除重复的前端目录 `si1v3rApi-frontend/si1v3rApi-frontend/`。
+4. `virtualApi` 的 `VirtualApiApplicationTests.clintTest` 依赖真实运行的网关，删掉这个测试方法，保留 `contextLoads`。
+5. **不要动** `UserServiceImpl`、`UserController`、`InterfaceController`、`SqlUtils`、`application.yml`。
+
+## S4. 用户密钥 + 在线调试（feat-user-key，第 2 波）
+
+1. **生成密钥**：
+   - 注册时用 `SecureRandom` 生成。`assessKey` 为 16 字节，转 32 位小写十六进制；`secretKey` 为 32 字节，转 64 位小写十六进制。
+   - `assessKey` 和库里已有的值冲突时重新生成。
+   - 删除旧的 MD5 生成逻辑，以及那段写死 key 的死代码。
+2. **接口**：
+   - `GET /user/key`：需要登录，返回 `UserKeyVO {assessKey, secretKey}`。当前用户还没有密钥时，先生成再返回。
+   - `POST /user/key/regenerate`：需要登录，重新生成密钥并返回 `UserKeyVO`。旧 key 立即失效，因为网关每次请求都会查库。
+3. **在线调试 `POST /interfaceInfo/invoke`**（请求为 `{id, requestParams}`）：
+   - 需要登录；接口必须存在且已上线。
+   - 用当前用户自己的密钥，以及配置项 `si1v3r.client.gateway-host`（默认 `http://localhost:8090`），构造 `new Si1v3rApiClient(ak, sk, gatewayHost)`，按接口记录里的 `method`、`url` 调用 `invoke`：
+     - `GET` / `DELETE`：`requestParams` 按扁平 JSON 对象解析成 query。为空时不带 query；不是对象时报参数错误。
+     - `POST` / `PUT`：`requestParams` 原样作为 JSON body。为空时发送 `{}`。
+   - 返回 `InvokeResultVO {status, body}`，即网关的原始状态码和响应体。网关返回非 2xx 时也正常返回这个 VO，不抛业务异常。
+4. **配置清理**：
+   - 删除 backend `application.yml` 里的 `si1v3r.client.assess-key`、`secret-key`，保留并新增 `si1v3r.client.gateway-host`。
+   - 删除 `UserInterfaceInfoController` 等处未使用的 `Si1v3rApiClient` 注入。
+
+## S5. 前端（feat-frontend-design，第 3 波）
+
+后端接口以 S1–S4 合并后的代码为准。可以启动 backend 后执行 `openapi` 重新生成 `src/services`，也可以手写，二选一。
+
+1. **路由**：修复 `/` 重复定义的问题。最终路由如下：
+   - 首页 `/` → 接口列表
+   - `/interface/:id` → 接口详情 + 在线调试
+   - `/user/login`、`/user/register`
+   - `/account/center` → 个人中心
+   - `/admin/user`、`/admin/api`（仅管理员）
+2. **首页**：调用 `/interfaceInfo/list/page/vo`，支持搜索和分页，点击进入详情页。
+3. **接口详情**：
+   - 展示接口信息。
+   - 在线调试：输入 `requestParams`，调用 `/interfaceInfo/invoke`，展示返回的 `status` 和 `body`。非 2xx 用醒目颜色显示。
+4. **个人中心**：
+   - 我的密钥：展示 `assessKey`；`secretKey` 默认打码，可以切换显示、可以复制；"重新生成"按钮需要二次确认。
+   - 我的调用统计：表格展示 `/userInterfaceInfo/my/list` 的数据。
+5. **管理员接口管理**：新增和修改表单增加 `url`、`method` 的前端校验，规则与 S2 一致。
+6. **杂项**：`BACKEND_HOST_PROD` 不能再是 `https://yupi.icu`，改为占位符并加注释说明需要替换；删除前端里对已经不存在的后端接口的调用。
+7. **验收**：`pnpm install` 后，`pnpm run tsc` 和 `pnpm build` 都通过；启动完整后端链路，用浏览器自动化走通主流程（注册 → 登录 → 首页 → 详情页调试成功 → 个人中心能看到密钥和调用次数 +1），并截图作为证据。
