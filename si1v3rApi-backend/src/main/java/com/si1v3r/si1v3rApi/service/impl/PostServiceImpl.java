@@ -22,11 +22,13 @@ import com.si1v3r.si1v3rApi.model.dto.post.PostQueryRequest;
 import com.si1v3r.si1v3rApi.model.entity.Post;
 import com.si1v3r.si1v3rApi.model.entity.PostThumb;
 
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
@@ -56,6 +58,9 @@ import org.springframework.stereotype.Service;
 @Service
 @Slf4j
 public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements PostService {
+
+    private static final Set<String> SORT_FIELDS = new HashSet<>(Arrays.asList(
+            "id", "createTime", "updateTime", "thumbNum", "favourNum"));
 
     @Resource
     private UserService userService;
@@ -125,7 +130,8 @@ public class PostServiceImpl extends ServiceImpl<PostMapper, Post> implements Po
         queryWrapper.ne(ObjectUtils.isNotEmpty(notId), "id", notId);
         queryWrapper.eq(ObjectUtils.isNotEmpty(id), "id", id);
         queryWrapper.eq(ObjectUtils.isNotEmpty(userId), "userId", userId);
-        queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortOrder.equals(CommonConstant.SORT_ORDER_ASC),
+        queryWrapper.orderBy(SqlUtils.validSortField(sortField, SORT_FIELDS) && SqlUtils.validSortOrder(sortOrder),
+                "ascend".equals(sortOrder),
                 sortField);
         return queryWrapper;
     }

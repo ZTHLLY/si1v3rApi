@@ -22,6 +22,8 @@ public class UserAddRequest implements Serializable {
      */
     private String userAccount;
 
+    private String userPassword;
+
     /**
      * 用户头像
      */

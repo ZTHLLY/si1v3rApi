@@ -6,7 +6,6 @@ import cn.hutool.crypto.digest.DigestUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.si1v3r.si1v3rApi.common.ErrorCode;
-import com.si1v3r.si1v3rApi.constant.CommonConstant;
 import com.si1v3r.si1v3rApi.constant.UserConstant;
 import com.si1v3r.si1v3rApi.exception.BusinessException;
 import com.si1v3r.si1v3rApi.mapper.UserMapper;
@@ -18,6 +17,10 @@ import com.si1v3r.si1v3rApi.service.UserService;
 import com.si1v3r.si1v3rApi.utils.SqlUtils;
 import com.si1v3r.si1v3rApi.model.dto.user.UserQueryRequest;
 
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -28,6 +31,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 /**
  * 用户服务实现
@@ -39,10 +43,16 @@ import org.springframework.util.DigestUtils;
 @Slf4j
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
 
+    private static final Set<String> SORT_FIELDS = new HashSet<>(Arrays.asList(
+            "id", "createTime", "updateTime"));
+
     /**
      * 盐值，混淆密码
      */
     public static final String SALT = "si1v3r";
+
+    private static final BCryptPasswordEncoder PASSWORD_ENCODER =
+            new BCryptPasswordEncoder();
 
     @Override
     public long userRegister(String userAccount, String userPassword, String checkPassword) {
@@ -69,7 +79,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 throw new BusinessException(ErrorCode.PARAMS_ERROR, "账号重复");
             }
             // 2. 加密
-            String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
+            String encryptPassword = PASSWORD_ENCODER.encode(userPassword);
             //4.生成assessKey和secretKey
             String assessKey=DigestUtil.md5Hex(SALT+userAccount+RandomUtil.randomNumbers(5));
             String secretKey=DigestUtil.md5Hex(SALT+userAccount+RandomUtil.randomNumbers(8));
@@ -101,19 +111,33 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (userPassword.length() < 8) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码错误");
         }
-        // 2. 加密
-        String encryptPassword = DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes());
-        // 查询用户是否存在
         QueryWrapper<User> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("userAccount", userAccount);
-        queryWrapper.eq("userPassword", encryptPassword);
         User user = this.baseMapper.selectOne(queryWrapper);
-        // 用户不存在
-        if (user == null) {
-            log.info("user login failed, userAccount cannot match userPassword");
+        String storedPassword = user == null ? null : user.getUserPassword();
+        boolean legacy = storedPassword != null && storedPassword.matches("(?i)[0-9a-f]{32}");
+        boolean matches = legacy
+                ? DigestUtils.md5DigestAsHex((SALT + userPassword).getBytes(StandardCharsets.UTF_8))
+                    .equalsIgnoreCase(storedPassword)
+                : storedPassword != null && PASSWORD_ENCODER.matches(userPassword, storedPassword);
+        if (!matches) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "用户不存在或密码错误");
         }
+        if (UserRoleEnum.BAN.getValue().equals(user.getUserRole())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN_ERROR, "账号已封禁");
+        }
+        if (legacy) {
+            User upgrade = new User();
+            upgrade.setId(user.getId());
+            upgrade.setUserPassword(PASSWORD_ENCODER.encode(userPassword));
+            if (!this.updateById(upgrade)) {
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "密码升级失败");
+            }
+            user.setUserPassword(upgrade.getUserPassword());
+        }
         // 3. 记录用户的登录态
+        request.getSession();
+        request.changeSessionId();
         request.getSession().setAttribute(UserConstant.USER_LOGIN_STATE, user);
         return this.getLoginUserVO(user);
     }
@@ -145,6 +169,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 }
             }
             // 记录用户的登录态
+            request.getSession();
+            request.changeSessionId();
             request.getSession().setAttribute(UserConstant.USER_LOGIN_STATE, user);
             return getLoginUserVO(user);
         }
@@ -167,7 +193,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 从数据库查询（追求性能的话可以注释，直接走缓存）
         long userId = currentUser.getId();
         currentUser = this.getById(userId);
-        if (currentUser == null) {
+        if (currentUser == null || UserRoleEnum.BAN.getValue().equals(currentUser.getUserRole())) {
             throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
         }
         return currentUser;
@@ -189,7 +215,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         }
         // 从数据库查询（追求性能的话可以注释，直接走缓存）
         long userId = currentUser.getId();
-        return this.getById(userId);
+        User user = this.getById(userId);
+        return user == null || UserRoleEnum.BAN.getValue().equals(user.getUserRole()) ? null : user;
     }
 
     /**
@@ -274,7 +301,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         queryWrapper.eq(StringUtils.isNotBlank(userRole), "userRole", userRole);
         queryWrapper.like(StringUtils.isNotBlank(userProfile), "userProfile", userProfile);
         queryWrapper.like(StringUtils.isNotBlank(userName), "userName", userName);
-        queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortOrder.equals(CommonConstant.SORT_ORDER_ASC),
+        queryWrapper.orderBy(SqlUtils.validSortField(sortField, SORT_FIELDS) && SqlUtils.validSortOrder(sortOrder),
+                "ascend".equals(sortOrder),
                 sortField);
         return queryWrapper;
     }
