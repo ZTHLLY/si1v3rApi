@@ -1,4 +1,12 @@
 declare namespace API {
+  type InvokeResultVO = { status: number; body: string };
+  type UserKeyVO = { assessKey: string; secretKey: string };
+  type MyInvokeStatVO = {
+    interfaceInfoId: number; interfaceName: string | null; url: string | null;
+    method: string | null; totalNum: number; updateTime: string;
+  };
+  type BaseResponse<T> = { code: number; data?: T; message?: string };
+
   type BaseResponseBoolean_ = {
     code?: number;
     data?: boolean;
@@ -152,7 +160,6 @@ declare namespace API {
 
   type InterfaceInfoAddRequest = {
     description?: string;
-    id?: number;
     method?: string;
     name?: string;
     requestHeader?: string;
@@ -204,9 +211,7 @@ declare namespace API {
     requestParams?: string;
     responseHeader?: string;
     status?: number;
-    updateTime?: string;
     url?: string;
-    userId?: number;
   };
 
   type LoginUserVO = {
@@ -405,6 +410,7 @@ declare namespace API {
   };
 
   type UserAddRequest = {
+    userPassword: string;
     userAccount?: string;
     userAvatar?: string;
     userName?: string;

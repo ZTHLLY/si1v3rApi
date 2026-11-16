@@ -17,7 +17,7 @@ interface Props {
  *
  * @param fields
  */
-const handleUpdate = async (fields: API.UserUpdateRequest) => {
+const handleUpdate = async (fields: API.InterfaceInfoUpdateRequest) => {
   const hide = message.loading('正在更新');
   try {
     await updateInterfaceInfoUsingPost(fields);

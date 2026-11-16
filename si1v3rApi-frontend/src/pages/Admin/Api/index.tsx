@@ -1,3 +1,4 @@
+import { isValidApiPath, isValidApiMethod } from '@/utils/interface-validation';
 import CreateModal from '@/pages/Admin/Api/components/CreateModal';
 import UpdateModal from '@/pages/Admin/Api/components/UpdateModal';
 import {
@@ -25,7 +26,7 @@ const ApiAdminPage: React.FC = () => {
   const [updateModalVisible, setUpdateModalVisible] = useState<boolean>(false);
   const actionRef = useRef<ActionType>();
   // 当前用户点击的数据
-  const [currentRow, setCurrentRow] = useState<API.User>();
+  const [currentRow, setCurrentRow] = useState<API.InterfaceInfo>();
 
   /**
    * 删除节点
@@ -110,6 +111,7 @@ const ApiAdminPage: React.FC = () => {
       title: '接口名称',
       dataIndex: 'name',
       valueType: 'text',
+      formItemProps: { rules: [{ required: true, whitespace: true, max: 50 }] },
     },
     {
       title: '描述',
@@ -119,12 +121,37 @@ const ApiAdminPage: React.FC = () => {
     {
       title: '请求方法',
       dataIndex: 'method',
-      valueType: 'text',
+      valueType: 'select',
+      valueEnum: { GET: 'GET', POST: 'POST', PUT: 'PUT', DELETE: 'DELETE' },
+      formItemProps: {
+        rules: [
+          { required: true },
+          {
+            validator: (_, value) =>
+              isValidApiMethod(value)
+                ? Promise.resolve()
+                : Promise.reject(new Error('Use GET, POST, PUT or DELETE')),
+          },
+        ],
+      },
     },
     {
       title: 'url',
       dataIndex: 'url',
       valueType: 'text',
+      formItemProps: {
+        rules: [
+          { required: true },
+          {
+            validator: (_, value) =>
+              isValidApiPath(value)
+                ? Promise.resolve()
+                : Promise.reject(
+                    new Error('Enter a canonical /api/ path without query or fragment'),
+                  ),
+          },
+        ],
+      },
     },
     {
       title: '请求参数',
@@ -184,6 +211,7 @@ const ApiAdminPage: React.FC = () => {
         </a>,
         record.status === 0 ? (
           <a
+            key="online"
             onClick={() => {
               // setUpdateModalVisible(true);
               // setCurrentRow(record);
@@ -194,6 +222,7 @@ const ApiAdminPage: React.FC = () => {
           </a>
         ) : null,
         <Button
+          key="delete"
           type="text"
           danger
           onClick={() => {
@@ -206,6 +235,7 @@ const ApiAdminPage: React.FC = () => {
 
         record.status === 1 ? (
           <Button
+            key="offline"
             type="text"
             danger
             onClick={() => {
@@ -224,7 +254,7 @@ const ApiAdminPage: React.FC = () => {
       <ProTable<API.InterfaceInfo>
         headerTitle={'查询表格'}
         actionRef={actionRef}
-        rowKey="key"
+        rowKey="id"
         search={{
           labelWidth: 120,
         }}

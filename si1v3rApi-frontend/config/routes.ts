@@ -1,6 +1,12 @@
 export default [
-  { path: '/', icon: 'smile', component: './Index/Welcome', name: 'Welcome' },
-  { path: '/Interface_Info/:id', icon: 'smile', component: './InterfaceInfo', name: '查看接口',hideInMenu: true },
+  { path: '/', icon: 'smile', component: './Index/Welcome', name: 'APIs' },
+  {
+    path: '/interface/:id',
+    icon: 'smile',
+    component: './InterfaceInfo',
+    name: '查看接口',
+    hideInMenu: true,
+  },
   {
     path: '/user',
     layout: false,
@@ -22,6 +28,6 @@ export default [
     ],
   },
 
-  { path: '/', redirect: '/welcome' },
+  { path: '/account/center', component: './Account/Center', name: 'Account center', icon: 'user' },
   { path: '*', layout: false, component: './404' },
 ];

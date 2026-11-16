@@ -52,7 +52,7 @@ export async function invokeInterfaceInfoUsingPost(
   body: API.InterfaceInfoInvokeRequest,
   options?: { [key: string]: any },
 ) {
-  return request<API.BaseResponseObject_>('/api/interfaceInfo/invoke', {
+  return request<API.BaseResponse<API.InvokeResultVO>>('/api/interfaceInfo/invoke', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
