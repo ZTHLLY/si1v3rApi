@@ -3,103 +3,107 @@ import {
   invokeInterfaceInfoUsingPost,
 } from '@/services/si1v3rApi-backend/interfaceController';
 import { PageContainer } from '@ant-design/pro-components';
-import { useModel, useParams } from '@umijs/max';
-import { Button, Card, Descriptions, Divider, Form, Input, message, theme } from 'antd';
+import { useParams } from '@umijs/max';
+import { Alert, Button, Card, Descriptions, Form, Input, message, Space, Tag } from 'antd';
 import React, { useEffect, useState } from 'react';
 
-const Welcome: React.FC = () => {
+const InterfaceInfo: React.FC = () => {
+  const { id } = useParams();
   const [loading, setLoading] = useState(false);
-  const [Invokeloading, setInvokeLoading] = useState(false);
-
-  const [data, setdata] = useState<API.InterfaceInfo>();
-  const [Invokers, setInvokers] = useState();
-  const params = useParams();
-  const { token } = theme.useToken();
-  const { initialState } = useModel('@@initialState');
-
-  const loadData = async () => {
-    if (!params.id) {
-      message.error('parameters not found');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await getInterfaceInfoVoByIdUsingGet({
-        id: Number(params.id),
-      });
-
-      setdata(res.data);
-    } catch (error: any) {
-      message.error('request failed: ' + error.message);
-      return false;
-    }
-    setLoading(false);
-  };
+  const [invoking, setInvoking] = useState(false);
+  const [data, setData] = useState<API.InterfaceInfoVO>();
+  const [result, setResult] = useState<API.InvokeResultVO>();
 
   useEffect(() => {
-    loadData();
-  }, []);
+    let active = true;
+    setLoading(true);
+    getInterfaceInfoVoByIdUsingGet({ id: Number(id) })
+      .then((res) => {
+        if (active) setData(res.data);
+      })
+      .catch((error: Error) => {
+        if (active) message.error(error.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [id]);
 
-  const onFinish = async (data: any) => {
-    setInvokeLoading(true);
-    if (!params.id) {
-      message.error('parameter not found');
-      return;
-    }
+  const invoke = async (values: { requestParams?: string }) => {
+    setInvoking(true);
+    setResult(undefined);
     try {
-      const res = await invokeInterfaceInfoUsingPost({ id: params.id, ...data });
-
-      //console.log(res);
-      setInvokeLoading(false);
-      setInvokers(res.data);
-      message.success('invoke success');
-      return true;
-    } catch (error: any) {
-      message.error('option error:', error);
+      const res = await invokeInterfaceInfoUsingPost({
+        id: Number(id),
+        requestParams: values.requestParams,
+      });
+      setResult(res.data);
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : 'Invocation failed');
+    } finally {
+      setInvoking(false);
     }
   };
 
   return (
-    <PageContainer title="Detail of the Interface">
-      <Card>
-        {data ? (
-          <Descriptions title={data?.name} column={1}>
-            <Descriptions.Item label="status">{data.status ? 'able' : 'closed'}</Descriptions.Item>
-            <Descriptions.Item label="method">{data.method}</Descriptions.Item>
-            <Descriptions.Item label="url">{data.url}</Descriptions.Item>
-            <Descriptions.Item label="requestParams">{data.requestParams}</Descriptions.Item>
-            <Descriptions.Item label="requestHeader">{data.requestHeader}</Descriptions.Item>
-            <Descriptions.Item label="responseHeader">{data.responseHeader}</Descriptions.Item>
-            <Descriptions.Item label="createTime">{data.createTime}</Descriptions.Item>
-            <Descriptions.Item label="updateTime">{data.updateTime}</Descriptions.Item>
-            <Descriptions.Item label="description">{data.description}</Descriptions.Item>
-          </Descriptions>
-        ) : (
-          <>Interface not found</>
-        )}
-      </Card>
-      <Card>
-        <Form name="invoke" layout="vertical" onFinish={onFinish}>
-          <Form.Item label="requestParams" name="requestParams">
-            <Input.TextArea />
-          </Form.Item>
-
-          <Form.Item
-            wrapperCol={{
-              span: 16,
-            }}
-          >
-            <Button type="primary" htmlType="submit">
+    <PageContainer title="API details">
+      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+        <Card loading={loading}>
+          {data ? (
+            <Descriptions title={data.name} column={1}>
+              <Descriptions.Item label="Status">
+                {data.status === 1 ? 'Online' : 'Offline'}
+              </Descriptions.Item>
+              <Descriptions.Item label="Method">{data.method}</Descriptions.Item>
+              <Descriptions.Item label="URL">{data.url}</Descriptions.Item>
+              <Descriptions.Item label="Description">{data.description}</Descriptions.Item>
+              <Descriptions.Item label="Request parameters">{data.requestParams}</Descriptions.Item>
+              <Descriptions.Item label="Request headers">{data.requestHeader}</Descriptions.Item>
+              <Descriptions.Item label="Response headers">{data.responseHeader}</Descriptions.Item>
+              <Descriptions.Item label="Created">{data.createTime}</Descriptions.Item>
+            </Descriptions>
+          ) : (
+            'Interface not found'
+          )}
+        </Card>
+        <Card title="Online debugger">
+          <Form layout="vertical" onFinish={invoke}>
+            <Form.Item
+              label="requestParams"
+              name="requestParams"
+              help="GET / DELETE: flat JSON query object. POST / PUT: JSON body."
+            >
+              <Input.TextArea rows={5} placeholder={'{"name":"S5"}'} />
+            </Form.Item>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={invoking}
+              disabled={data?.status !== 1}
+            >
               Invoke
             </Button>
-          </Form.Item>
-        </Form>
-      </Card>
-      <Divider />
-      <Card>{Invokers}</Card>
+          </Form>
+        </Card>
+        {result && (
+          <Alert
+            type={result.status >= 200 && result.status < 300 ? 'success' : 'error'}
+            message={
+              <Tag color={result.status >= 200 && result.status < 300 ? 'green' : 'red'}>
+                Status {result.status}
+              </Tag>
+            }
+            description={
+              <pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{result.body}</pre>
+            }
+          />
+        )}
+      </Space>
     </PageContainer>
   );
 };
-
-export default Welcome;
+InterfaceInfo.displayName = 'InterfaceInfo';
+export default InterfaceInfo;

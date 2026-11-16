@@ -6,7 +6,7 @@ import { useEmotionCss } from '@ant-design/use-emotion-css';
 import { Helmet, history, useModel } from '@umijs/max';
 import { message, Tabs } from 'antd';
 import React, { useState } from 'react';
-import { Link } from 'umi';
+import { Link } from '@umijs/max';
 import Settings from '../../../../config/defaultSettings';
 
 const Login: React.FC = () => {
@@ -39,7 +39,8 @@ const Login: React.FC = () => {
         currentUser: res.data,
       });
       const urlParams = new URL(window.location.href).searchParams;
-      history.push(urlParams.get('redirect') || '/');
+      const redirect = urlParams.get('redirect');
+      history.push(redirect?.startsWith('/') && !redirect.startsWith('//') ? redirect : '/');
       return;
     } catch (error: any) {
       const defaultLoginFailureMessage = `login failed: ${error.message}`;
@@ -99,7 +100,7 @@ const Login: React.FC = () => {
                   size: 'large',
                   prefix: <UserOutlined />,
                 }}
-                placeholder={'Administrator account: admin'}
+                placeholder={'Account'}
                 rules={[
                   {
                     required: true,
@@ -113,7 +114,7 @@ const Login: React.FC = () => {
                   size: 'large',
                   prefix: <LockOutlined />,
                 }}
-                placeholder={'password: 123456789'}
+                placeholder={'Password'}
                 rules={[
                   {
                     required: true,
@@ -128,7 +129,6 @@ const Login: React.FC = () => {
             style={{
               marginBottom: 24,
               textAlign: 'right',
-              
             }}
           >
             <Link to="/user/register">new user register</Link>

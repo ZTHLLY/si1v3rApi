@@ -25,10 +25,10 @@ export async function receiveMessageUsingPost(options?: { [key: string]: any }) 
   });
 }
 
-/** setMenu GET /api/setMenu */
-export async function setMenuUsingGet(options?: { [key: string]: any }) {
+/** setMenu POST /api/setMenu */
+export async function setMenuUsingPost(options?: { [key: string]: any }) {
   return request<string>('/api/setMenu', {
-    method: 'GET',
+    method: 'POST',
     ...(options || {}),
   });
 }

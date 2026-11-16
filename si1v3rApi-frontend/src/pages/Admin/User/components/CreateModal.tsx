@@ -49,7 +49,19 @@ const CreateModal: React.FC<Props> = (props) => {
     >
       <ProTable
         type="form"
-        columns={columns}
+        columns={[
+          ...columns,
+          {
+            title: 'Password',
+            dataIndex: 'userPassword',
+            valueType: 'password',
+            formItemProps: {
+              rules: [
+                { required: true, min: 8, message: 'Password must contain at least 8 characters' },
+              ],
+            },
+          },
+        ]}
         onSubmit={async (values: API.UserAddRequest) => {
           const success = await handleAdd(values);
           if (success) {
