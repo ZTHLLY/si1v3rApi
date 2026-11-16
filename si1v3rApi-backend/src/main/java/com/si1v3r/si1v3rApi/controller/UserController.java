@@ -21,6 +21,7 @@ import com.si1v3r.si1v3rApi.model.entity.User;
 import com.si1v3r.si1v3rApi.model.vo.AdminUserVO;
 import com.si1v3r.si1v3rApi.model.vo.LoginUserVO;
 import com.si1v3r.si1v3rApi.model.vo.UserVO;
+import com.si1v3r.si1v3rApi.model.vo.UserKeyVO;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -58,6 +59,18 @@ public class UserController {
 
     @Resource
     private WxOpenConfig wxOpenConfig;
+
+    @GetMapping("/key")
+    public BaseResponse<UserKeyVO> getUserKey(HttpServletRequest request) {
+        User user = userService.getLoginUser(request);
+        return ResultUtils.success(userService.getUserKey(user.getId(), false));
+    }
+
+    @PostMapping("/key/regenerate")
+    public BaseResponse<UserKeyVO> regenerateUserKey(HttpServletRequest request) {
+        User user = userService.getLoginUser(request);
+        return ResultUtils.success(userService.getUserKey(user.getId(), true));
+    }
 
     // region 登录相关
 
