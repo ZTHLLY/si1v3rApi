@@ -29,7 +29,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Clock;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicReference;
+import static com.si1v3r.si1v3rapigateway.support.GatewaySchedulers.originalScheduler;
 
 @Component
 public class AuthGlobalFilter implements GlobalFilter, Ordered {
@@ -179,23 +179,6 @@ public class AuthGlobalFilter implements GlobalFilter, Ordered {
         return !path.contains("//") && !path.contains("/./") && !path.contains("/../")
                 && !path.endsWith("/.") && !path.endsWith("/..") && !path.contains(";") && !path.contains("\\")
                 && !lower.contains("%2e") && !lower.contains("%2f") && !lower.contains("%5c") && !lower.contains("%00");
-    }
-
-    private static Scheduler originalScheduler(ServerHttpRequest request) {
-        Object nativeRequest;
-        try {
-            nativeRequest = ServerHttpRequestDecorator.getNativeRequest(request);
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            nativeRequest = null;
-        }
-        if (nativeRequest instanceof reactor.netty.http.server.HttpServerRequest) {
-            AtomicReference<Scheduler> scheduler = new AtomicReference<>();
-            ((reactor.netty.http.server.HttpServerRequest) nativeRequest).withConnection(connection ->
-                    scheduler.set(Schedulers.fromExecutor(connection.channel().eventLoop())));
-            return scheduler.get();
-        }
-        // Mock/non-Netty exchanges have no transport event loop; never run their chain on the RPC pool.
-        return Schedulers.parallel();
     }
 
     private static String header(ServerHttpRequest request, String name) {
