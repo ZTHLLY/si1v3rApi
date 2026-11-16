@@ -3,6 +3,8 @@ package com.si1v3r.si1v3rApi.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 
 import com.si1v3r.si1v3rApi.model.entity.UserInterfaceInfo;
+import com.si1v3r.si1v3rApi.model.vo.MyInvokeStatVO;
+import java.util.List;
 
 /**
 * @author silverbullets
@@ -10,6 +12,8 @@ import com.si1v3r.si1v3rApi.model.entity.UserInterfaceInfo;
 * @createDate 2024-10-15 17:28:14
 */
 public interface UserInterfaceInfoService extends IService<UserInterfaceInfo> {
+    List<MyInvokeStatVO> listMyInvokeStats(long userId);
+
     void validUserInterfaceInfo(UserInterfaceInfo userinterfaceInfo, boolean add);
 
     /**

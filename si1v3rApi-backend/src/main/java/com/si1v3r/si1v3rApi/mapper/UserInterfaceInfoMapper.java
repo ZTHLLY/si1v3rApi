@@ -5,6 +5,8 @@ import org.apache.ibatis.annotations.Insert;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.si1v3r.si1v3rApi.model.entity.UserInterfaceInfo;
+import com.si1v3r.si1v3rApi.model.vo.MyInvokeStatVO;
+import java.util.List;
 
 /**
 * @author silverbullets
@@ -13,6 +15,8 @@ import com.si1v3r.si1v3rApi.model.entity.UserInterfaceInfo;
 * @Entity generator.domain.UserInterfaceInfo
 */
 public interface UserInterfaceInfoMapper extends BaseMapper<UserInterfaceInfo> {
+    List<MyInvokeStatVO> listMyInvokeStats(@Param("userId") long userId);
+
     @Insert("INSERT INTO user_interface_info (userId, interfaceInfoId, totalNum) "
             + "VALUES (#{userId}, #{interfaceInfoId}, 1) "
             + "ON DUPLICATE KEY UPDATE totalNum = totalNum + 1, isDelete = 0")
@@ -20,7 +24,3 @@ public interface UserInterfaceInfoMapper extends BaseMapper<UserInterfaceInfo> {
 
 
 }
-
-
-
-
