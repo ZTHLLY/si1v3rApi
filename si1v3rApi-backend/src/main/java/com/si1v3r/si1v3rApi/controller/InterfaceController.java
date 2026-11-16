@@ -1,6 +1,5 @@
 package com.si1v3r.si1v3rApi.controller;
 
-import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.google.gson.Gson;
 import com.si1v3r.si1v3rApi.annotation.AuthCheck;
@@ -26,7 +25,8 @@ import com.si1v3r.si1v3rapiclientsdk.client.Si1v3rApiClient;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.List;
+import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * 帖子接口
@@ -44,8 +44,6 @@ public class InterfaceController {
     @Resource
     private UserService userService;
 
-    @Resource
-    private Si1v3rApiClient si1v3rApiClient;
 
     // region 增删改查
 
@@ -57,6 +55,7 @@ public class InterfaceController {
      * @return
      */
     @PostMapping("/add")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<Long> addInterfaceInfo(@RequestBody InterfaceInfoAddRequest interfaceInfoAddRequest, HttpServletRequest request) {
         if (interfaceInfoAddRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -84,19 +83,15 @@ public class InterfaceController {
      * @return
      */
     @PostMapping("/delete")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<Boolean> deleteInterfaceInfo(@RequestBody DeleteRequest deleteRequest, HttpServletRequest request) {
         if (deleteRequest == null || deleteRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        User user = userService.getLoginUser(request);
         long id = deleteRequest.getId();
         // 判断是否存在
         InterfaceInfo oldInterfaceInfo = interfaceInfoService.getById(id);
         ThrowUtils.throwIf(oldInterfaceInfo == null, ErrorCode.NOT_FOUND_ERROR);
-        // 仅本人或管理员可删除
-        if (!oldInterfaceInfo.getUserId().equals(user.getId()) && !userService.isAdmin(request)) {
-            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
-        }
         boolean b = interfaceInfoService.removeById(id);
         return ResultUtils.success(b);
     }
@@ -170,14 +165,20 @@ public class InterfaceController {
     @PostMapping("/list/page/vo")
     public BaseResponse<Page<InterfaceInfoVO>> listInterfaceInfoVOByPage(@RequestBody InterfaceInfoQueryRequest interfaceInfoQueryRequest,
             HttpServletRequest request) {
-//        long current = interfaceInfoQueryRequest.getCurrent();
-//        long size = interfaceInfoQueryRequest.getPageSize();
-//        // 限制爬虫
-//        ThrowUtils.throwIf(size > 20, ErrorCode.PARAMS_ERROR);
-//        Page<InterfaceInfo> interfaceInfoPage = interfaceInfoService.page(new Page<>(current, size),
-//                interfaceInfoService.getQueryWrapper(interfaceInfoQueryRequest));
-//        return ResultUtils.success(interfaceInfoService.getInterfaceInfoVOPage(interfaceInfoPage, request));
-        return null;
+        userService.getLoginUser(request);
+        ThrowUtils.throwIf(interfaceInfoQueryRequest == null, ErrorCode.PARAMS_ERROR);
+        long current = interfaceInfoQueryRequest.getCurrent();
+        long size = interfaceInfoQueryRequest.getPageSize();
+        ThrowUtils.throwIf(current < 1 || size < 1 || size > 20, ErrorCode.PARAMS_ERROR);
+        Page<InterfaceInfo> page = interfaceInfoService.page(new Page<>(current, size),
+                interfaceInfoService.getQueryWrapper(interfaceInfoQueryRequest)
+                        .eq("status", InterfaceStatusEnum.ONLINE.getValue())
+                        .eq("isDelete", 0)
+                        .like(StringUtils.isNotBlank(interfaceInfoQueryRequest.getDescription()),
+                                "description", interfaceInfoQueryRequest.getDescription()));
+        Page<InterfaceInfoVO> voPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
+        voPage.setRecords(page.getRecords().stream().map(InterfaceInfoVO::objToVo).collect(Collectors.toList()));
+        return ResultUtils.success(voPage);
     }
 
 
@@ -200,16 +201,12 @@ public class InterfaceController {
         }
 
 
-        com.si1v3r.si1v3rapiclientsdk.model.User user=new com.si1v3r.si1v3rapiclientsdk.model.User();
-        user.setName("test");
-        String getUser = si1v3rApiClient.getUsernameByPost(user);
-        if(getUser==null){
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"接口认证失败");
-        }
+        interfaceInfoService.validInterfaceInfo(oldinterfaceInfo, true);
 
         InterfaceInfo interfaceInfo =new InterfaceInfo();
         interfaceInfo.setId(id);
         interfaceInfo.setStatus(InterfaceStatusEnum.ONLINE.getValue());
+        interfaceInfo.setMethod(oldinterfaceInfo.getMethod());
 
         boolean result = interfaceInfoService.updateById(interfaceInfo);
 
