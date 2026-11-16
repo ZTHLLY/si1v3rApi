@@ -52,49 +52,59 @@ class InnerServicesIntegrationTest {
     @AfterEach
     void cleanFixtures() {
         // Only remove IDs reserved for this test class, including logically deleted rows.
-        jdbc.update("DELETE FROM user_interface_info WHERE id=1900000301");
+        jdbc.update("DELETE FROM user_interface_info WHERE userId IN (1900000101,-1900000101,0) "
+                + "AND interfaceInfoId IN (1900000201,-1900000201,0)");
         jdbc.update("DELETE FROM interface_info WHERE id IN (1900000201,1900000202)");
         jdbc.update("DELETE FROM user WHERE id=1900000101");
     }
 
-    private void relation(int left, int status, int deleted) {
-        jdbc.update("INSERT INTO user_interface_info(id,userId,interfaceInfoId,leftNum,totalNum,status,isDelete) "
-                + "VALUES (1900000301,1900000101,1900000201,?,0,?,?)", left, status, deleted);
-    }
-
-    private void assertCounters(int left, int total) {
-        Map<String, Object> row = jdbc.queryForMap("SELECT leftNum,totalNum FROM user_interface_info "
-                + "WHERE userId=1900000101 AND interfaceInfoId=1900000201");
-        assertEquals(left, ((Number) row.get("leftNum")).intValue());
-        assertEquals(total, ((Number) row.get("totalNum")).intValue());
+    private void assertTotalAndSingleRow(int total) {
+        Map<String, Object> row = jdbc.queryForMap("SELECT COUNT(*) AS rowCount, SUM(totalNum) AS total "
+                + "FROM user_interface_info WHERE userId=1900000101 AND interfaceInfoId=1900000201");
+        assertEquals(1, ((Number) row.get("rowCount")).intValue());
+        assertEquals(total, ((Number) row.get("total")).intValue());
     }
 
     @Test
-    void consumesLastCallExactlyOnce() {
-        relation(1, 0, 0);
-        assertTrue(innerCounts.hasLeftNum(1900000201, 1900000101));
+    void firstCallAutomaticallyCreatesRecord() {
+        assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM user_interface_info "
+                + "WHERE userId=1900000101 AND interfaceInfoId=1900000201", Integer.class));
+        assertTrue(innerCounts.invokeCount(1900000201, 1900000101));
+        assertTotalAndSingleRow(1);
+    }
+
+    @Test
+    void subsequentCallsIncrementExistingRecord() {
+        assertTrue(innerCounts.invokeCount(1900000201, 1900000101));
         assertTrue(counts.invokeCount(1900000201, 1900000101));
-        assertFalse(innerCounts.invokeCount(1900000201, 1900000101));
-        assertFalse(innerCounts.hasLeftNum(1900000201, 1900000101));
-        assertCounters(0, 1);
+        assertTrue(innerCounts.invokeCount(1900000201, 1900000101));
+        assertTotalAndSingleRow(3);
     }
 
     @Test
-    void disabledDeletedAndMissingRelationsCannotBeConsumed() {
-        assertFalse(counts.invokeCount(1900000201, 1900000101));
-        assertFalse(innerCounts.hasLeftNum(1900000201, 1900000101));
-        for (int[] state : new int[][] {{1, 0}, {0, 1}}) {
-            relation(3, state[0], state[1]);
-            assertFalse(innerCounts.hasLeftNum(1900000201, 1900000101));
-            assertFalse(innerCounts.invokeCount(1900000201, 1900000101));
-            assertCounters(3, 0);
-            jdbc.update("DELETE FROM user_interface_info WHERE id=1900000301");
+    void deletedRecordIsRestoredAndIncremented() {
+        jdbc.update("INSERT INTO user_interface_info(userId,interfaceInfoId,totalNum,isDelete) "
+                + "VALUES (1900000101,1900000201,7,1)");
+        assertTrue(innerCounts.invokeCount(1900000201, 1900000101));
+        assertTotalAndSingleRow(8);
+        assertEquals(0, jdbc.queryForObject("SELECT isDelete FROM user_interface_info "
+                + "WHERE userId=1900000101 AND interfaceInfoId=1900000201", Integer.class));
+    }
+
+    @Test
+    void invalidParametersDoNotCreateRecords() {
+        int before = jdbc.queryForObject("SELECT COUNT(*) FROM user_interface_info", Integer.class);
+        for (long[] pair : new long[][] {{0,1900000101}, {-1900000201,1900000101},
+                {1900000201,0}, {1900000201,-1900000101}, {0,0}, {-1900000201,-1900000101}}) {
+            assertFalse(counts.invokeCount(pair[0], pair[1]));
+            assertFalse(innerCounts.invokeCount(pair[0], pair[1]));
         }
+        assertEquals(before, jdbc.queryForObject("SELECT COUNT(*) FROM user_interface_info", Integer.class));
     }
 
     @Test
-    void twentyConcurrentCallsConsumeOnlyFive() throws Exception {
-        relation(5, 0, 0);
+    void twentyConcurrentFirstCallsCreateOneRowAndCountEveryCall() throws Exception {
+        // No pre-created relation: the unique pair index must arbitrate concurrent inserts.
         ExecutorService pool = Executors.newFixedThreadPool(20);
         CountDownLatch ready = new CountDownLatch(20);
         CountDownLatch start = new CountDownLatch(1);
@@ -109,12 +119,8 @@ class InnerServicesIntegrationTest {
             }
             assertTrue(ready.await(10, TimeUnit.SECONDS));
             start.countDown();
-            int successes = 0;
-            for (Future<Boolean> result : results) {
-                if (result.get(20, TimeUnit.SECONDS)) { successes++; }
-            }
-            assertEquals(5, successes);
-            assertCounters(0, 5);
+            for (Future<Boolean> result : results) assertTrue(result.get(20, TimeUnit.SECONDS));
+            assertTotalAndSingleRow(20);
         } finally {
             start.countDown();
             pool.shutdownNow();

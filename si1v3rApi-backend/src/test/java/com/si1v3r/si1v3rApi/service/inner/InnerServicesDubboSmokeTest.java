@@ -41,8 +41,7 @@ class InnerServicesDubboSmokeTest {
             InnerUserInterfaceInfoService counts = reference(InnerUserInterfaceInfoService.class, application);
             assertNull(users.getInvokeUser("<missing-smoke-access-key>"));
             assertNull(interfaces.getInterfaceInfo("/missing-t2-smoke", "post"));
-            assertFalse(counts.hasLeftNum(Long.MAX_VALUE, Long.MAX_VALUE));
-            assertFalse(counts.invokeCount(Long.MAX_VALUE, Long.MAX_VALUE));
+            assertFalse(counts.invokeCount(0, 0));
         } finally {
             references.forEach(ReferenceConfig::destroy);
             DubboBootstrap.getInstance().destroy();

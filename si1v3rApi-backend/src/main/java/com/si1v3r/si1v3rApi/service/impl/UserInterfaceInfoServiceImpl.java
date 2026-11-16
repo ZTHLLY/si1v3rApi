@@ -37,7 +37,8 @@ public class UserInterfaceInfoServiceImpl extends ServiceImpl<UserInterfaceInfoM
 
     @Override
     public boolean invokeCount(long interfaceInfoId, long userId) {
-        return baseMapper.deductInvokeCount(interfaceInfoId, userId) == 1;
+        if (interfaceInfoId <= 0 || userId <= 0) return false;
+        return baseMapper.recordInvoke(interfaceInfoId, userId) >= 1;
     }
 }
 

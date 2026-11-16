@@ -1,7 +1,7 @@
 package com.si1v3r.si1v3rApi.mapper;
 
 import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Update;
+import org.apache.ibatis.annotations.Insert;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.si1v3r.si1v3rApi.model.entity.UserInterfaceInfo;
@@ -13,10 +13,10 @@ import com.si1v3r.si1v3rApi.model.entity.UserInterfaceInfo;
 * @Entity generator.domain.UserInterfaceInfo
 */
 public interface UserInterfaceInfoMapper extends BaseMapper<UserInterfaceInfo> {
-    @Update("UPDATE user_interface_info SET leftNum = leftNum - 1, totalNum = totalNum + 1 "
-            + "WHERE interfaceInfoId = #{interfaceInfoId} AND userId = #{userId} "
-            + "AND status = 0 AND leftNum > 0 AND isDelete = 0")
-    int deductInvokeCount(@Param("interfaceInfoId") long interfaceInfoId, @Param("userId") long userId);
+    @Insert("INSERT INTO user_interface_info (userId, interfaceInfoId, totalNum) "
+            + "VALUES (#{userId}, #{interfaceInfoId}, 1) "
+            + "ON DUPLICATE KEY UPDATE totalNum = totalNum + 1, isDelete = 0")
+    int recordInvoke(@Param("interfaceInfoId") long interfaceInfoId, @Param("userId") long userId);
 
 
 }

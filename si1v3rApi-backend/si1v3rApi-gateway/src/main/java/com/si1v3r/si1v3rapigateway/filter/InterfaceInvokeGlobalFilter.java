@@ -8,6 +8,7 @@ import com.si1v3r.si1v3rapigateway.support.GatewayAttrs;
 import com.si1v3r.si1v3rapigateway.support.GatewayErrors;
 import com.si1v3r.si1v3rapigateway.support.GatewaySchedulers;
 import org.apache.dubbo.config.annotation.DubboReference;
+import org.apache.dubbo.config.annotation.Method;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -27,8 +28,8 @@ public class InterfaceInvokeGlobalFilter implements GlobalFilter, Ordered {
     private static final Logger LOG = LoggerFactory.getLogger(InterfaceInvokeGlobalFilter.class);
     @DubboReference(check = false)
     private InnerInterfaceInfoService interfaceService;
-    // Counting is non-idempotent: a timeout must never trigger a second deduction.
-    @DubboReference(check = false, retries = 0)
+    // Counting is non-idempotent: a timeout must never trigger a duplicate increment.
+    @DubboReference(check = false, methods = @Method(name = "invokeCount", retries = 0))
     private InnerUserInterfaceInfoService userInterfaceService;
 
     public InterfaceInvokeGlobalFilter() { }
@@ -58,7 +59,7 @@ public class InterfaceInvokeGlobalFilter implements GlobalFilter, Ordered {
             Scheduler original = GatewaySchedulers.originalScheduler(exchange.getRequest());
             Mono<Void> result = user == null
                     ? GatewayErrors.write(exchange, HttpStatus.UNAUTHORIZED, 40100, "Unauthorized")
-                    : Mono.fromCallable(() -> validate(path, method, user.getId(), interfaceId))
+                    : Mono.fromCallable(() -> validate(path, method, interfaceId))
                         .subscribeOn(Schedulers.boundedElastic()).publishOn(original)
                         .flatMap(rejection -> {
                             if (rejection != 0) return reject(exchange, rejection);
@@ -82,13 +83,13 @@ public class InterfaceInvokeGlobalFilter implements GlobalFilter, Ordered {
         });
     }
 
-    private int validate(String path, String method, long userId, AtomicReference<Long> id) {
+    private int validate(String path, String method, AtomicReference<Long> id) {
         try {
             InvokeInterface info = interfaceService.getInterfaceInfo(path, method);
             if (info == null) return 40400;
             id.set(info.getId());
             if (!Integer.valueOf(1).equals(info.getStatus())) return 40301;
-            return userInterfaceService.hasLeftNum(info.getId(), userId) ? 0 : 40302;
+            return 0;
         } catch (Exception e) { return 50000; }
     }
 
@@ -103,14 +104,13 @@ public class InterfaceInvokeGlobalFilter implements GlobalFilter, Ordered {
 
     private static int status(ServerWebExchange exchange) {
         Integer status = exchange.getResponse().getRawStatusCode();
-        return status == null ? 200 : status;
+        return status == null ? 0 : status;
     }
 
     private static Mono<Void> reject(ServerWebExchange exchange, int code) {
         switch (code) {
             case 40400: return GatewayErrors.write(exchange, HttpStatus.NOT_FOUND, code, "Interface not found");
             case 40301: return GatewayErrors.write(exchange, HttpStatus.FORBIDDEN, code, "Interface offline");
-            case 40302: return GatewayErrors.write(exchange, HttpStatus.FORBIDDEN, code, "No remaining calls");
             default: return GatewayErrors.write(exchange, HttpStatus.INTERNAL_SERVER_ERROR, 50000, "Internal server error");
         }
     }

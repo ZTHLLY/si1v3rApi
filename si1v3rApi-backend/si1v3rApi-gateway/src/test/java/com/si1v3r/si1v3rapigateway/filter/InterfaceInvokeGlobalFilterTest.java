@@ -31,7 +31,6 @@ class InterfaceInvokeGlobalFilterTest {
         info = new InvokeInterface(); info.setId(21L); info.setStatus(1);
         user = new InvokeUser(); user.setId(7L); user.setAssessKey("test-access"); user.setSecretKey("test-secret");
         when(interfaces.getInterfaceInfo(anyString(), anyString())).thenReturn(info);
-        when(users.hasLeftNum(21L, 7L)).thenReturn(true);
         when(users.invokeCount(21L, 7L)).thenReturn(true);
     }
     private MockServerWebExchange exchange() {
@@ -65,13 +64,9 @@ class InterfaceInvokeGlobalFilterTest {
     }
     @Test void offlineInterface() throws Exception { info.setStatus(0); error(exchange(), 403, 40301); verifyNoInteractions(users); }
     @Test void nullStatusIsOffline() throws Exception { info.setStatus(null); error(exchange(), 403, 40301); }
-    @Test void exhausted() throws Exception { when(users.hasLeftNum(21L, 7L)).thenReturn(false); error(exchange(), 403, 40302); }
     @Test void lookupFailure() throws Exception {
         when(interfaces.getInterfaceInfo(anyString(), anyString())).thenThrow(new RuntimeException("private"));
         error(exchange(), 500, 50000); verifyNoInteractions(users);
-    }
-    @Test void quotaFailure() throws Exception {
-        when(users.hasLeftNum(21L, 7L)).thenThrow(new RuntimeException("private")); error(exchange(), 500, 50000);
     }
     @Test void successCountsExactlyOnceAfterResponse() {
         MockServerWebExchange e = exchange();
@@ -114,7 +109,6 @@ class InterfaceInvokeGlobalFilterTest {
         when(interfaces.getInterfaceInfo(anyString(), anyString())).thenAnswer(call -> {
             assertTrue(Thread.currentThread().getName().contains("boundedElastic")); return info;
         });
-        when(users.hasLeftNum(21L, 7L)).thenAnswer(call -> { assertTrue(Thread.currentThread().getName().contains("boundedElastic")); return true; });
         when(users.invokeCount(21L, 7L)).thenAnswer(call -> { assertTrue(Thread.currentThread().getName().contains("boundedElastic")); return true; });
         org.springframework.http.server.reactive.HttpHandler handler = org.springframework.web.server.adapter.WebHttpHandlerBuilder.webHandler(e -> {
             original.set(Thread.currentThread()); e.getAttributes().put(GatewayAttrs.INVOKE_USER, user);
@@ -172,7 +166,7 @@ class InterfaceInvokeGlobalFilterTest {
             finally { finished.countDown(); }
             return true;
         });
-        reactor.core.Disposable subscription = filter.filter(exchange(), e -> e.getResponse().setComplete()).subscribe();
+        reactor.core.Disposable subscription = filter.filter(exchange(), e -> { e.getResponse().setStatusCode(HttpStatus.OK); return e.getResponse().setComplete(); }).subscribe();
         try {
             assertTrue(started.await(3, java.util.concurrent.TimeUnit.SECONDS));
             subscription.dispose();
@@ -181,6 +175,39 @@ class InterfaceInvokeGlobalFilterTest {
             assertFalse(interrupted.get());
             verify(users, times(1)).invokeCount(21L, 7L);
         } finally { release.countDown(); subscription.dispose(); }
+    }
+
+    @Test void onlyCountingDisablesRetries() throws Exception {
+        org.apache.dubbo.config.annotation.DubboReference lookup = InterfaceInvokeGlobalFilter.class
+                .getDeclaredField("interfaceService").getAnnotation(org.apache.dubbo.config.annotation.DubboReference.class);
+        org.apache.dubbo.config.annotation.DubboReference accounting = InterfaceInvokeGlobalFilter.class
+                .getDeclaredField("userInterfaceService").getAnnotation(org.apache.dubbo.config.annotation.DubboReference.class);
+        assertFalse(lookup.check());
+        assertFalse(accounting.check());
+        // -1 is Dubbo's unset sentinel: inherit the normal consumer/cluster retry policy.
+        assertEquals(-1, lookup.retries());
+        assertEquals(0, lookup.methods().length);
+        assertEquals(-1, accounting.retries());
+        assertEquals(1, accounting.methods().length);
+        assertEquals("invokeCount", accounting.methods()[0].name());
+        assertEquals(0, accounting.methods()[0].retries());
+    }
+
+    @Test void cancelledUnknownStatusLogsZeroAndDoesNotCount() throws Exception {
+        ch.qos.logback.classic.Logger logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(InterfaceInvokeGlobalFilter.class);
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender = new ch.qos.logback.core.read.ListAppender<>();
+        appender.start(); logger.addAppender(appender);
+        java.util.concurrent.CountDownLatch forwarded = new java.util.concurrent.CountDownLatch(1);
+        MockServerWebExchange e = exchange();
+        reactor.core.Disposable subscription = filter.filter(e, ignored -> { forwarded.countDown(); return Mono.never(); }).subscribe();
+        try {
+            assertTrue(forwarded.await(3, java.util.concurrent.TimeUnit.SECONDS));
+            assertNull(e.getResponse().getRawStatusCode());
+            subscription.dispose();
+            assertTrue(appender.list.stream().anyMatch(event -> event.getFormattedMessage().contains("status=0 ")));
+            assertFalse(appender.list.stream().anyMatch(event -> event.getFormattedMessage().contains("status=200 ")));
+            verifyNoInteractions(users);
+        } finally { subscription.dispose(); logger.detachAppender(appender); appender.stop(); }
     }
 
 }
