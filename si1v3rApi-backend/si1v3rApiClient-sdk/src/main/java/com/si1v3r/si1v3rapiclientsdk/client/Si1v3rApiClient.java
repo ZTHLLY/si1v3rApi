@@ -1,90 +1,160 @@
 package com.si1v3r.si1v3rapiclientsdk.client;
 
-
-import cn.hutool.core.util.RandomUtil;
-import cn.hutool.crypto.digest.DigestAlgorithm;
-import cn.hutool.crypto.digest.Digester;
-import cn.hutool.http.HttpRequest;
-import cn.hutool.http.HttpResponse;
-import cn.hutool.http.HttpUtil;
 import cn.hutool.json.JSONUtil;
+import com.si1v3r.si1v3rapiclientsdk.model.ApiResponse;
 import com.si1v3r.si1v3rapiclientsdk.model.User;
+import com.si1v3r.si1v3rapiclientsdk.utils.SignUtils;
 
-import java.util.HashMap;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.entity.ByteArrayEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.time.Clock;
+import java.util.Collections;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.TreeMap;
 
 public class Si1v3rApiClient {
+    private final String assessKey;
+    private final String secretKey;
+    private final String gatewayHost;
+    private final Clock clock;
+    private final SecureRandom random;
+    private int connectTimeoutMillis = 5000;
+    private int readTimeoutMillis = 10000;
 
-    private static final String GATEWAY_HOST="http://localhost:8090";
+    public Si1v3rApiClient(String assessKey, String secretKey) {
+        this(assessKey, secretKey, "http://localhost:8090");
+    }
 
-    private String assessKey;
-    private String secretKey;
+    public Si1v3rApiClient(String assessKey, String secretKey, String gatewayHost) {
+        this(assessKey, secretKey, gatewayHost, Clock.systemUTC(), new SecureRandom());
+    }
 
+    // Package-private deterministic sources for protocol-vector tests.
+    Si1v3rApiClient(String assessKey, String secretKey, String gatewayHost, Clock clock, SecureRandom random) {
+        this.assessKey = assessKey;
+        this.secretKey = secretKey;
+        this.gatewayHost = Objects.requireNonNull(gatewayHost, "gatewayHost").replaceAll("/+$", "");
+        URI host = URI.create(this.gatewayHost);
+        if (!("http".equalsIgnoreCase(host.getScheme()) || "https".equalsIgnoreCase(host.getScheme()))
+                || host.getHost() == null || host.getRawUserInfo() != null
+                || !host.getRawPath().isEmpty() || host.getRawQuery() != null || host.getRawFragment() != null) {
+            throw new IllegalArgumentException("gatewayHost must be an HTTP(S) origin");
+        }
+        this.clock = Objects.requireNonNull(clock, "clock");
+        this.random = Objects.requireNonNull(random, "random");
+    }
 
-    public Si1v3rApiClient(String assessKey, String secretKey){
-        this.assessKey=assessKey;
-        this.secretKey=secretKey;
+    public void setConnectTimeoutMillis(int timeout) {
+        if (timeout <= 0) throw new IllegalArgumentException("Connection timeout must be positive");
+        this.connectTimeoutMillis = timeout;
+    }
+
+    public void setReadTimeoutMillis(int timeout) {
+        if (timeout <= 0) throw new IllegalArgumentException("Read timeout must be positive");
+        this.readTimeoutMillis = timeout;
+    }
+
+    /** path is a raw, already percent-encoded path, without query or fragment. */
+    public ApiResponse invoke(String method, String path, Map<String, String> query, String jsonBody) {
+        if (assessKey == null || secretKey == null || secretKey.isEmpty()) {
+            throw new IllegalStateException("SDK credentials are not configured");
+        }
+        String verb = Objects.requireNonNull(method, "method").toUpperCase(Locale.ROOT);
+        if (!verb.matches("[!#$%&'*+.^_`|~0-9A-Z-]+")) {
+            throw new IllegalArgumentException("Invalid HTTP method");
+        }
+        if (path == null || !path.startsWith("/") || path.startsWith("//")) {
+            throw new IllegalArgumentException("path must start with a single slash");
+        }
+        URI rawPath = URI.create(path);
+        if (!path.equals(rawPath.getRawPath()) || !path.equals(rawPath.toASCIIString())) {
+            throw new IllegalArgumentException("path must be an ASCII raw path without query or fragment");
+        }
+        StringBuilder queryString = new StringBuilder();
+        if (query != null) {
+            for (Map.Entry<String, String> entry : new TreeMap<>(query).entrySet()) {
+                if (queryString.length() > 0) queryString.append('&');
+                queryString.append(encode(entry.getKey())).append('=').append(encode(entry.getValue()));
+            }
+        }
+        String rawQuery = queryString.toString();
+        byte[] body = jsonBody == null ? new byte[0] : jsonBody.getBytes(StandardCharsets.UTF_8);
+        String timestamp = Long.toString(clock.instant().getEpochSecond());
+        byte[] nonceBytes = new byte[16];
+        random.nextBytes(nonceBytes);
+        StringBuilder nonceBuilder = new StringBuilder(32);
+        for (byte b : nonceBytes) nonceBuilder.append(String.format(Locale.ROOT, "%02x", b & 255));
+        String nonce = nonceBuilder.toString();
+        String sign = SignUtils.sign(verb, path, rawQuery, body, assessKey, timestamp, nonce, secretKey);
+        HttpEntityEnclosingRequestBase request = new HttpEntityEnclosingRequestBase() {
+            @Override public String getMethod() { return verb; }
+        };
+        request.setURI(URI.create(gatewayHost + path + (rawQuery.isEmpty() ? "" : "?" + rawQuery)));
+        request.setConfig(RequestConfig.custom().setConnectTimeout(connectTimeoutMillis)
+                .setSocketTimeout(readTimeoutMillis).setConnectionRequestTimeout(connectTimeoutMillis)
+                .setNormalizeUri(false).setRedirectsEnabled(false).build());
+        request.setHeader("assessKey", assessKey);
+        request.setHeader("timestamp", timestamp);
+        request.setHeader("nonce", nonce);
+        request.setHeader("sign", sign);
+        if (jsonBody != null) {
+            request.setHeader("Content-Type", "application/json");
+            request.setEntity(new ByteArrayEntity(body));
+        }
+        // No automatic retry: reusing a nonce would be rejected as a replay.
+        try (CloseableHttpClient client = HttpClients.custom().disableAutomaticRetries()
+                .disableRedirectHandling().disableCookieManagement().build();
+             CloseableHttpResponse response = client.execute(request)) {
+            int status = response.getStatusLine().getStatusCode();
+            if (response.getEntity() == null) return new ApiResponse(status, "");
+            try (InputStream input = response.getEntity().getContent();
+                 ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                byte[] buffer = new byte[4096];
+                int count;
+                while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+                return new ApiResponse(status, new String(output.toByteArray(), StandardCharsets.UTF_8));
+            }
+        } catch (IOException e) {
+            // Do not propagate transport messages (which can include sensitive URL data).
+            throw new UncheckedIOException("SDK network request failed", new IOException("Transport failure"));
+        }
+    }
+
+    private static String encode(String value) {
+        byte[] bytes = Objects.requireNonNull(value, "query key/value").getBytes(StandardCharsets.UTF_8);
+        StringBuilder encoded = new StringBuilder();
+        final char[] hex = "0123456789ABCDEF".toCharArray();
+        for (byte b : bytes) {
+            int c = b & 255;
+            if (c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9'
+                    || c == '-' || c == '.' || c == '_' || c == '~') encoded.append((char) c);
+            else encoded.append('%').append(hex[c >>> 4]).append(hex[c & 15]);
+        }
+        return encoded.toString();
     }
 
     public String getNameByGet(String name) {
-        //可以单独传入http参数，这样参数会自动做URL编码，拼接在URL中
-        HashMap<String, Object> paramMap = new HashMap<>();
-        paramMap.put("name", name);
-        String result = HttpUtil.get(GATEWAY_HOST+"/api/", paramMap);
-        System.out.println(result);
-        return result;
+        return invoke("GET", "/api/", Collections.singletonMap("name", name), null).getBody();
     }
 
     public String getNameByPost(String name) {
-        //可以单独传入http参数，这样参数会自动做URL编码，拼接在URL中
-        HashMap<String, Object> paramMap = new HashMap<>();
-        paramMap.put("name", name);
-        String result = HttpUtil.post(GATEWAY_HOST+"/api/name/", paramMap);
-        System.out.println(result);
-        return result;
+        return invoke("POST", "/api/name", Collections.singletonMap("name", name), null).getBody();
     }
 
-    /**
-     * 生成签名
-     * @param headers
-     * @param secretKey
-     * @return 加密签名
-     */
-    private String getSign(Map<String,String> headers,String secretKey){
-        Digester md5=new Digester(DigestAlgorithm.SHA256);
-        String nonce = headers.get("nonce");
-        String body = headers.get("body");
-        String timestamp = headers.get("timestamp");
-        String content=nonce+'.'+body+'.'+timestamp+'.'+secretKey;
-        return md5.digestHex(content);
+    public String getUsernameByPost(User user) {
+        return invoke("POST", "/api/user", null, JSONUtil.toJsonStr(user)).getBody();
     }
-
-    /**
-     * 设置请求头，要注意一定不能将secretKey发送给后端
-     * @return headers
-     */
-    private Map<String,String> setKeys(String body){
-        Map<String,String> headers=new HashMap<>();
-        headers.put("assessKey",assessKey);
-        //secretKey一定不能传出去
-        //headers.put("secretKey",secretKey);
-        headers.put("nonce", RandomUtil.randomNumbers(4));
-        headers.put("body",body);
-        headers.put("timestamp",String.valueOf(System.currentTimeMillis()/1000));
-        headers.put("sign",getSign(headers,secretKey));
-        return headers;
-    }
-
-    public String getUsernameByPost( User user) {
-        String json = JSONUtil.toJsonStr(user);
-        HttpResponse httpResponse = HttpRequest.post(GATEWAY_HOST+"/api/user")
-                .addHeaders(setKeys(json))
-                .body(json)
-                .execute();
-        System.out.println(httpResponse.getStatus());
-        String result = httpResponse.body();
-        System.out.println(result);
-        return result;
-    }
-
 }
