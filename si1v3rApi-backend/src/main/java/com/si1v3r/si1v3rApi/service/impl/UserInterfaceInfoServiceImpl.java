@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.si1v3r.si1v3rApi.common.ErrorCode;
 import com.si1v3r.si1v3rApi.exception.BusinessException;
 import com.si1v3r.si1v3rApi.model.entity.UserInterfaceInfo;
+import com.si1v3r.si1v3rApi.model.vo.MyInvokeStatVO;
+import java.util.List;
 import com.si1v3r.si1v3rApi.mapper.UserInterfaceInfoMapper;
 import com.si1v3r.si1v3rApi.service.UserInterfaceInfoService;
 import org.springframework.stereotype.Service;
@@ -23,16 +25,19 @@ public class UserInterfaceInfoServiceImpl extends ServiceImpl<UserInterfaceInfoM
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
 
-        // 创建时，参数不能为空
-        if (add) {
-            // 有参数则校验
-            if (userinterfaceInfo.getId()<=0||userinterfaceInfo.getUserId()<=0) {
-                throw new BusinessException(ErrorCode.PARAMS_ERROR, "User or Interface not exist");
-            }
+        if (add && (userinterfaceInfo.getUserId() == null || userinterfaceInfo.getUserId() <= 0
+                || userinterfaceInfo.getInterfaceInfoId() == null || userinterfaceInfo.getInterfaceInfoId() <= 0)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "User or Interface not exist");
         }
-        if (userinterfaceInfo.getLeftNum()<0) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR, "left number can not be less than 0");
+        if (userinterfaceInfo.getTotalNum() != null && userinterfaceInfo.getTotalNum() < 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "total number can not be less than 0");
         }
+    }
+
+    @Override
+    public List<MyInvokeStatVO> listMyInvokeStats(long userId) {
+        if (userId <= 0) throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        return baseMapper.listMyInvokeStats(userId);
     }
 
     @Override
@@ -41,7 +46,3 @@ public class UserInterfaceInfoServiceImpl extends ServiceImpl<UserInterfaceInfoM
         return baseMapper.recordInvoke(interfaceInfoId, userId) >= 1;
     }
 }
-
-
-
-
