@@ -67,7 +67,10 @@ public class Si1v3rApiClient {
         this.readTimeoutMillis = timeout;
     }
 
-    /** path is a raw, already percent-encoded path, without query or fragment. */
+    /**
+     * path is a raw, already percent-encoded path, without query or fragment.
+     * Query entries with null values are skipped: they are neither sent nor signed.
+     */
     public ApiResponse invoke(String method, String path, Map<String, String> query, String jsonBody) {
         if (assessKey == null || secretKey == null || secretKey.isEmpty()) {
             throw new IllegalStateException("SDK credentials are not configured");
@@ -86,6 +89,7 @@ public class Si1v3rApiClient {
         StringBuilder queryString = new StringBuilder();
         if (query != null) {
             for (Map.Entry<String, String> entry : new TreeMap<>(query).entrySet()) {
+                if (entry.getValue() == null) continue;
                 if (queryString.length() > 0) queryString.append('&');
                 queryString.append(encode(entry.getKey())).append('=').append(encode(entry.getValue()));
             }
@@ -128,8 +132,8 @@ public class Si1v3rApiClient {
                 return new ApiResponse(status, new String(output.toByteArray(), StandardCharsets.UTF_8));
             }
         } catch (IOException e) {
-            // Do not propagate transport messages (which can include sensitive URL data).
-            throw new UncheckedIOException("SDK network request failed", new IOException("Transport failure"));
+            // Preserve the transport cause for diagnostics, but do not copy its message.
+            throw new UncheckedIOException("SDK network request failed: " + e.getClass().getSimpleName(), e);
         }
     }
 

@@ -8,6 +8,7 @@ import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.*;
 import java.io.*;
 import java.net.InetSocketAddress;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.*;
@@ -57,6 +58,48 @@ class Si1v3rApiClientTest {
         assertEquals("a%20%26%E4%B8%AD%E6%96%87=%3D%2B%2F%25&z=a%20b%E4%B8%AD%E6%96%87%26%3D%2B%2F%25", r.query);
         assertArrayEquals("{\"name\":\"中文\"}\n".getBytes(StandardCharsets.UTF_8), r.body);
         assertEquals("application/json", r.contentType);
+    }
+    @Test void nullQueryValuesAreNeitherSentNorSigned() throws Exception {
+        Map<String, String> query = new HashMap<>();
+        query.put("a", null); query.put("b", "kept"); query.put("c", null); query.put("d", "");
+        client.invoke("GET", "/api/", query, null);
+        assertEquals("b=kept&d=", receive().query);
+        client.invoke("GET", "/api/", Collections.singletonMap("omitted", null), null);
+        assertNull(receive().query);
+    }
+    @Test void configToStringExcludesSecret() {
+        com.si1v3r.si1v3rapiclientsdk.si1v3rApiClientConfig config =
+                new com.si1v3r.si1v3rapiclientsdk.si1v3rApiClientConfig();
+        config.setSecretKey("unique-config-secret-value");
+        assertFalse(config.toString().contains("unique-config-secret-value"));
+        assertFalse(config.toString().contains("secretKey"));
+        assertFalse(client.toString().contains("test-secret"));
+    }
+    @Test void readTimeoutPreservesOriginalCauseAndType() throws Exception {
+        CountDownLatch releaseResponse = new CountDownLatch(1);
+        server.createContext("/slow", exchange -> {
+            requests.add(new Received(exchange));
+            try {
+                if (releaseResponse.await(5, TimeUnit.SECONDS)) exchange.sendResponseHeaders(200, -1);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } finally {
+                exchange.close();
+            }
+        });
+        client.setReadTimeoutMillis(1000);
+        try {
+            UncheckedIOException error = assertThrows(UncheckedIOException.class,
+                    () -> client.invoke("GET", "/slow", null, null));
+            assertInstanceOf(SocketTimeoutException.class, error.getCause());
+            assertTrue(error.getMessage().contains("SocketTimeoutException"));
+            assertFalse(error.getMessage().contains("test-secret"));
+            StringWriter trace = new StringWriter(); error.printStackTrace(new PrintWriter(trace));
+            assertFalse(trace.toString().contains("test-secret"));
+            assertEquals("/slow", receive().path);
+        } finally {
+            releaseResponse.countDown();
+        }
     }
     @Test void noBodyNonceAndTimestamp() throws Exception {
         client.invoke("get", "/api/", null, null); Received a = receive();

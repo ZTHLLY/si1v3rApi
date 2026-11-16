@@ -3,6 +3,7 @@ package com.si1v3r.si1v3rapiclientsdk;
 
 import com.si1v3r.si1v3rapiclientsdk.client.Si1v3rApiClient;
 import lombok.Data;
+import lombok.ToString;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -16,6 +17,7 @@ import org.springframework.context.annotation.Configuration;
 public class si1v3rApiClientConfig {
     private String assessKey;
 
+    @ToString.Exclude
     private String secretKey;
 
     private String gatewayHost = "http://localhost:8090";
