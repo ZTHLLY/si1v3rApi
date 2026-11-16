@@ -1,4 +1,4 @@
-# si1v3rApi MVP 开发约定（v1.1）
+# si1v3rApi MVP 开发约定（v1.2）
 
 本文是 MVP 第一批任务（1、2、3、9、10、12）的**唯一共享约定**。所有 worker 必须遵守；如果发现约定有问题或无法实现，**先用 `ask` 向协调者提出，不要自行改约定**。
 
@@ -87,9 +87,9 @@
 | `id` | `bigint auto_increment` 主键 | |
 | `userId` | `bigint not null` | |
 | `interfaceInfoId` | `bigint not null` | |
-| `totalNum` | `int default 0 not null` | 累计已调用次数 |
-| `leftNum` | `int default 0 not null` | 剩余次数 |
-| `status` | `int default 0 not null` | 0-正常，1-禁用 |
+| `totalNum` | `int default 0 not null` | 累计已调用次数（**MVP 唯一使用的计数字段**） |
+| `leftNum` | `int default 0 not null` | **v1.2 起废弃**：平台不做限额，代码不读不写，列暂时保留，后续统一清理 |
+| `status` | `int default 0 not null` | **v1.2 起废弃**：同上 |
 | `createTime` / `updateTime` / `isDelete` | | 同上 |
 
 唯一索引：`uk_user_interface (userId, interfaceInfoId)`。
@@ -142,22 +142,20 @@ public interface InnerInterfaceInfoService {
 }
 
 public interface InnerUserInterfaceInfoService {
-    /** 该用户对该接口是否还能调用：存在关系记录、status=0、leftNum>0。 */
-    boolean hasLeftNum(long interfaceInfoId, long userId);
-
     /**
-     * 调用成功后扣减一次。必须是一条原子 SQL：
-     * UPDATE user_interface_info SET leftNum = leftNum - 1, totalNum = totalNum + 1
-     * WHERE interfaceInfoId = ? AND userId = ? AND status = 0 AND leftNum > 0 AND isDelete = 0
-     * 影响行数为 1 返回 true，否则 false。
+     * v1.2：调用成功后记一次调用（只统计，不限额）。必须是一条原子 SQL：
+     * INSERT INTO user_interface_info (userId, interfaceInfoId, totalNum) VALUES (?, ?, 1)
+     * ON DUPLICATE KEY UPDATE totalNum = totalNum + 1, isDelete = 0
+     * 依赖唯一索引 uk_user_interface；第一次调用自动建记录。执行成功返回 true（参数非法返回 false）。
      */
     boolean invokeCount(long interfaceInfoId, long userId);
 }
 ```
 
 - backend 用 `@DubboService` 实现这三个接口，放在 `com.si1v3r.si1v3rApi.service.impl.inner` 包。
-- 现有 `UserInterfaceInfoServiceImpl.invokeCount` 改为上面的原子实现（T3），`InnerUserInterfaceInfoService` 的实现直接复用它。
-- 已知限制（MVP 接受）：先查 `hasLeftNum` 再转发、成功后才扣减，并发时可能有少量调用没被扣到；但 `leftNum` 永远不会变成负数。
+- 现有 `UserInterfaceInfoServiceImpl.invokeCount` 改为上面的原子实现，`InnerUserInterfaceInfoService` 的实现直接复用它。
+- **v1.2 产品决定：平台只统计调用次数，不做限额。** `hasLeftNum` 删除；任何通过鉴权的用户都可以调用已上线的接口。`leftNum`、`status` 两列不再读写。
+- 并发时计数准确（原子 `+1`，不丢计数）。
 
 ### 2.4 Dubbo 配置
 - backend：`dubbo.application.name=si1v3rApi-backend`，协议端口保持 `22221`。
@@ -238,7 +236,6 @@ HTTP 状态码 + JSON 体 `{"code": <int>, "message": "<string>"}`，`Content-Ty
 | nonce 全局容量已满 | 503 | 50300 |
 | 接口不存在 | 404 | 40400 |
 | 接口未上线 | 403 | 40301 |
-| 没有剩余次数或关系被禁用 | 403 | 40302 |
 | 网关内部错误（如 RPC 失败） | 500 | 50000 |
 
 `message` 用简短英文，不暴露内部细节。
@@ -250,7 +247,7 @@ HTTP 状态码 + JSON 体 `{"code": <int>, "message": "<string>"}`，`Content-Ty
 | 过滤器 | 负责任务 | `getOrder()` | 职责 |
 |---|---|---|---|
 | `AuthGlobalFilter` | T9 | `-100` | 读取并缓存请求体、校验签名/时间戳/nonce、查用户、判 ban；通过后把 `InvokeUser` 放进 `exchange.getAttributes()`，key 为常量 `GatewayAttrs.INVOKE_USER = "si1v3r.invokeUser"` |
-| `InterfaceInvokeGlobalFilter` | T10 | `-50` | 查接口、判上线、`hasLeftNum`；转发；响应状态为 2xx 时调用 `invokeCount`；记录响应日志 |
+| `InterfaceInvokeGlobalFilter` | T10 | `-50` | 查接口、判上线；转发；响应状态为 2xx 时调用 `invokeCount` 记一次调用；记录响应日志 |
 
 - **T10 查接口必须用 `request.getURI().getRawPath()` 原样作为 `url` 参数**（AuthGlobalFilter 已保证它是规范的），与签名用的 path 完全一致；method 用 `request.getMethodValue()`。不得自行解码或规范化后再查。
 - 两个过滤器放在 `com.si1v3r.si1v3rapigateway.filter` 包；常量类 `GatewayAttrs` 和错误响应工具 `GatewayErrors` 放 `com.si1v3r.si1v3rapigateway.support`，由 **T9 创建**，T10 只复用。
@@ -285,6 +282,6 @@ HTTP 状态码 + JSON 体 `{"code": <int>, "message": "<string>"}`，`Content-Ty
 ---
 
 ## 7. 本批次明确不做（后续任务）
-在线调试按接口 url 调用、用户密钥查看/重置、管理员分配次数、普通用户接口列表、前端改动、Redis、凭据外置、按接口动态路由、virtualApi 网络隔离、密码改 BCrypt、SQL 注入等安全修复。
+在线调试按接口 url 调用、用户密钥查看/重置、普通用户接口列表、前端改动、Redis、凭据外置、按接口动态路由、virtualApi 网络隔离、密码改 BCrypt、SQL 注入等安全修复。
 
 **已知过渡期影响**：T9 之后，backend 里用配置文件 `si1v3r.client` 固定 key（`admin01`）的"发布前校验"和"在线调试"会因为数据库里没有这个 key 而失败。这两个功能本来就有问题，会在后续任务（在线调试 / 密钥管理）里重做，本批次不修。
