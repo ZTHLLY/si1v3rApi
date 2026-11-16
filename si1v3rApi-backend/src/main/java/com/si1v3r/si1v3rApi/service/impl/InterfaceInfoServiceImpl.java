@@ -21,6 +21,10 @@ import org.springframework.stereotype.Service;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.Locale;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Arrays;
 
 /**
 * @author ruimingzhu
@@ -46,7 +50,31 @@ public class InterfaceInfoServiceImpl extends ServiceImpl<InterfaceInfoMapper, I
 
         // 创建时，参数不能为空
         if (add) {
-            ThrowUtils.throwIf(StringUtils.isAnyBlank(name, url, method,description), ErrorCode.PARAMS_ERROR);
+            ThrowUtils.throwIf(StringUtils.isAnyBlank(name, url, method), ErrorCode.PARAMS_ERROR);
+        }
+        if (name != null && StringUtils.isBlank(name)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "名称不能为空");
+        }
+        if (url != null) {
+            String lower = url.toLowerCase(Locale.ROOT);
+            boolean invalid = !url.startsWith("/api/") || lower.contains("//")
+                    || lower.contains("/./") || lower.contains("/../")
+                    || lower.endsWith("/.") || lower.endsWith("/..")
+                    || lower.contains(";") || lower.contains("\\") || lower.contains("%2e")
+                    || lower.contains("%2f") || lower.contains("%5c") || lower.contains("%00");
+            try {
+                URI uri = new URI(url);
+                invalid |= !url.equals(uri.getRawPath()) || uri.getRawQuery() != null || uri.getRawFragment() != null;
+            } catch (URISyntaxException e) {
+                invalid = true;
+            }
+            ThrowUtils.throwIf(invalid, ErrorCode.PARAMS_ERROR, "接口路径不合法");
+        }
+        if (method != null) {
+            String normalized = method.toUpperCase(Locale.ROOT);
+            ThrowUtils.throwIf(!Arrays.asList("GET", "POST", "PUT", "DELETE").contains(normalized),
+                    ErrorCode.PARAMS_ERROR, "请求方法不合法");
+            interfaceInfo.setMethod(normalized);
         }
         // 有参数则校验
         if (StringUtils.isNotBlank(name) && name.length() > 50) {
