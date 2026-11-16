@@ -1,8 +1,6 @@
 package com.si1v3r.si1v3rApi.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.util.RandomUtil;
-import cn.hutool.crypto.digest.DigestUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.si1v3r.si1v3rApi.common.ErrorCode;
@@ -17,6 +15,9 @@ import com.si1v3r.si1v3rApi.service.UserService;
 import com.si1v3r.si1v3rApi.utils.SqlUtils;
 import com.si1v3r.si1v3rApi.model.dto.user.UserQueryRequest;
 
+import java.security.SecureRandom;
+import org.springframework.dao.DuplicateKeyException;
+import com.si1v3r.si1v3rApi.model.vo.UserKeyVO;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
@@ -80,23 +81,78 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
             }
             // 2. 加密
             String encryptPassword = PASSWORD_ENCODER.encode(userPassword);
-            //4.生成assessKey和secretKey
-            String assessKey=DigestUtil.md5Hex(SALT+userAccount+RandomUtil.randomNumbers(5));
-            String secretKey=DigestUtil.md5Hex(SALT+userAccount+RandomUtil.randomNumbers(8));
-            // 3. 插入数据
             User user = new User();
             user.setUserAccount(userAccount);
             user.setUserPassword(encryptPassword);
-            user.setAssessKey("si1v3r");
-            user.setSecretKey("abcdefgh");
-            user.setAssessKey(assessKey);
-            user.setSecretKey(secretKey);
-           boolean saveResult = this.save(user);
-            if (!saveResult) {
-                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "注册失败，数据库错误");
+            for (int attempt = 0; attempt < 10; attempt++) {
+                assignKeys(user);
+                try {
+                    if (!this.save(user)) {
+                        throw new BusinessException(ErrorCode.SYSTEM_ERROR, "注册失败，数据库错误");
+                    }
+                    return user.getId();
+                } catch (DuplicateKeyException e) {
+                    // The unique index also protects against concurrent key collisions.
+                    user.setId(null);
+                }
             }
-            return user.getId();
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "密钥生成失败");
         }
+    }
+
+    private static final SecureRandom KEY_RANDOM = new SecureRandom();
+
+    private String randomHex(int length) {
+        byte[] bytes = new byte[length];
+        KEY_RANDOM.nextBytes(bytes);
+        StringBuilder hex = new StringBuilder(length * 2);
+        for (byte value : bytes) {
+            hex.append(Character.forDigit((value & 0xff) >>> 4, 16));
+            hex.append(Character.forDigit(value & 0xf, 16));
+        }
+        return hex.toString();
+    }
+
+    private void assignKeys(User user) {
+        String assessKey;
+        do {
+            assessKey = randomHex(16);
+        } while (baseMapper.selectCount(new QueryWrapper<User>().eq("assessKey", assessKey)) > 0);
+        user.setAssessKey(assessKey);
+        user.setSecretKey(randomHex(32));
+    }
+
+    @Override
+    public synchronized UserKeyVO getUserKey(long userId, boolean regenerate) {
+        User user = getById(userId);
+        if (user == null || UserRoleEnum.BAN.getValue().equals(user.getUserRole())) {
+            throw new BusinessException(ErrorCode.NOT_LOGIN_ERROR);
+        }
+        if (regenerate || StringUtils.isAnyBlank(user.getAssessKey(), user.getSecretKey())) {
+            boolean saved = false;
+            for (int attempt = 0; attempt < 10 && !saved; attempt++) {
+                User update = new User();
+                update.setId(userId);
+                assignKeys(update);
+                try {
+                    saved = updateById(update);
+                    if (!saved) {
+                        throw new BusinessException(ErrorCode.SYSTEM_ERROR, "密钥保存失败");
+                    }
+                    user.setAssessKey(update.getAssessKey());
+                    user.setSecretKey(update.getSecretKey());
+                } catch (DuplicateKeyException e) {
+                    // Retry with a new random key if another writer won the race.
+                }
+            }
+            if (!saved) {
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "密钥生成失败");
+            }
+        }
+        UserKeyVO result = new UserKeyVO();
+        result.setAssessKey(user.getAssessKey());
+        result.setSecretKey(user.getSecretKey());
+        return result;
     }
 
     @Override

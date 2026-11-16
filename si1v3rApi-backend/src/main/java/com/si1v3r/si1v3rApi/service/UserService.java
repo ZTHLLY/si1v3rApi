@@ -6,6 +6,7 @@ import com.si1v3r.si1v3rApi.model.dto.user.UserQueryRequest;
 import com.si1v3r.si1v3rApi.model.entity.User;
 import com.si1v3r.si1v3rApi.model.vo.LoginUserVO;
 import com.si1v3r.si1v3rApi.model.vo.UserVO;
+import com.si1v3r.si1v3rApi.model.vo.UserKeyVO;
 import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import me.chanjar.weixin.common.bean.WxOAuth2UserInfo;
@@ -17,6 +18,9 @@ import me.chanjar.weixin.common.bean.WxOAuth2UserInfo;
  * @from <a href="https://yupi.icu">编程导航知识星球</a>
  */
 public interface UserService extends IService<User> {
+
+    /** Return persisted keys, creating missing keys or rotating them when requested. */
+    UserKeyVO getUserKey(long userId, boolean regenerate);
 
     /**
      * 用户注册
