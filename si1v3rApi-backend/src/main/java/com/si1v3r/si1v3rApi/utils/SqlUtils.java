@@ -1,25 +1,14 @@
 package com.si1v3r.si1v3rApi.utils;
 
-import org.apache.commons.lang3.StringUtils;
+import java.util.Set;
 
-/**
- * SQL 工具
- *
- * @author <a href="https://github.com/liyupi">程序员鱼皮</a>
- * @from <a href="https://yupi.icu">编程导航知识星球</a>
- */
+/** SQL sorting uses exact column names from a per-query allowlist. */
 public class SqlUtils {
+    public static boolean validSortField(String sortField, Set<String> allowed) {
+        return sortField != null && allowed.contains(sortField);
+    }
 
-    /**
-     * 校验排序字段是否合法（防止 SQL 注入）
-     *
-     * @param sortField
-     * @return
-     */
-    public static boolean validSortField(String sortField) {
-        if (StringUtils.isBlank(sortField)) {
-            return false;
-        }
-        return !StringUtils.containsAny(sortField, "=", "(", ")", " ");
+    public static boolean validSortOrder(String sortOrder) {
+        return "ascend".equals(sortOrder) || "descend".equals(sortOrder);
     }
 }

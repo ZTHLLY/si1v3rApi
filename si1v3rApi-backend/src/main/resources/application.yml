@@ -52,10 +52,11 @@ server:
     session:
       cookie:
         max-age: 2592000
+        http-only: true
+        same-site: lax
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: false
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   global-config:
     db-config:
       logic-delete-field: isDelete # 全局逻辑删除的实体字段名
@@ -103,6 +104,8 @@ knife4j:
           - com.si1v3r.si1v3rApi.controller
     concat: "si1v3r"
 si1v3r:
+  cors:
+    allowed-origins: ${SI1V3R_CORS_ALLOWED_ORIGINS:http://localhost:8000}
   client:
     assess-key: admin01
     secret-key: abcdefgh

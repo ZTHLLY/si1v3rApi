@@ -4,7 +4,6 @@ import cn.hutool.core.collection.CollUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.si1v3r.si1v3rApi.common.ErrorCode;
-import com.si1v3r.si1v3rApi.constant.CommonConstant;
 import com.si1v3r.si1v3rApi.exception.BusinessException;
 import com.si1v3r.si1v3rApi.exception.ThrowUtils;
 import com.si1v3r.si1v3rApi.model.dto.interfaceinfo.InterfaceInfoQueryRequest;
@@ -20,6 +19,9 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 
 /**
@@ -30,6 +32,9 @@ import java.util.List;
 @Service
 public class InterfaceInfoServiceImpl extends ServiceImpl<InterfaceInfoMapper, InterfaceInfo>
     implements InterfaceInfoService {
+
+    private static final Set<String> SORT_FIELDS = new HashSet<>(Arrays.asList(
+            "id", "createTime", "updateTime"));
 
     @Resource
     private InterfaceInfoMapper interfaceInfoMapper;
@@ -97,8 +102,9 @@ public class InterfaceInfoServiceImpl extends ServiceImpl<InterfaceInfoMapper, I
 
         //queryWrapper.eq(ObjectUtils.isNotEmpty(id), "id", id);
         //queryWrapper.eq(ObjectUtils.isNotEmpty(userId), "userId", userId);
-//        queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortOrder.equals(CommonConstant.SORT_ORDER_ASC),
-//                sortField);
+        queryWrapper.orderBy(SqlUtils.validSortField(sortField, SORT_FIELDS) && SqlUtils.validSortOrder(sortOrder),
+                "ascend".equals(sortOrder),
+                sortField);
         return queryWrapper;
     }
 
