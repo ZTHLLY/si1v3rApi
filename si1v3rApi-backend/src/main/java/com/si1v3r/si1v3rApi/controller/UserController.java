@@ -18,10 +18,13 @@ import com.si1v3r.si1v3rApi.model.dto.user.UserRegisterRequest;
 import com.si1v3r.si1v3rApi.model.dto.user.UserUpdateMyRequest;
 import com.si1v3r.si1v3rApi.model.dto.user.UserUpdateRequest;
 import com.si1v3r.si1v3rApi.model.entity.User;
+import com.si1v3r.si1v3rApi.model.vo.AdminUserVO;
 import com.si1v3r.si1v3rApi.model.vo.LoginUserVO;
 import com.si1v3r.si1v3rApi.model.vo.UserVO;
+import com.si1v3r.si1v3rApi.model.vo.UserKeyVO;
 
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -32,15 +35,13 @@ import me.chanjar.weixin.common.bean.oauth2.WxOAuth2AccessToken;
 import me.chanjar.weixin.mp.api.WxMpService;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
-import org.springframework.util.DigestUtils;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-
-import static com.si1v3r.si1v3rApi.service.impl.UserServiceImpl.SALT;
 
 /**
  * 用户接口
@@ -58,6 +59,18 @@ public class UserController {
 
     @Resource
     private WxOpenConfig wxOpenConfig;
+
+    @GetMapping("/key")
+    public BaseResponse<UserKeyVO> getUserKey(HttpServletRequest request) {
+        User user = userService.getLoginUser(request);
+        return ResultUtils.success(userService.getUserKey(user.getId(), false));
+    }
+
+    @PostMapping("/key/regenerate")
+    public BaseResponse<UserKeyVO> regenerateUserKey(HttpServletRequest request) {
+        User user = userService.getLoginUser(request);
+        return ResultUtils.success(userService.getUserKey(user.getId(), true));
+    }
 
     // region 登录相关
 
@@ -172,10 +185,11 @@ public class UserController {
         }
         User user = new User();
         BeanUtils.copyProperties(userAddRequest, user);
-        // 默认密码 12345678
-        String defaultPassword = "12345678";
-        String encryptPassword = DigestUtils.md5DigestAsHex((SALT + defaultPassword).getBytes());
-        user.setUserPassword(encryptPassword);
+        String password = userAddRequest.getUserPassword();
+        if (StringUtils.isBlank(password) || password.length() < 8) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "密码至少 8 位");
+        }
+        user.setUserPassword(new BCryptPasswordEncoder().encode(password));
         boolean result = userService.save(user);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return ResultUtils.success(user.getId());
@@ -228,13 +242,13 @@ public class UserController {
      */
     @GetMapping("/get")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    public BaseResponse<User> getUserById(long id, HttpServletRequest request) {
+    public BaseResponse<AdminUserVO> getUserById(long id, HttpServletRequest request) {
         if (id <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         User user = userService.getById(id);
         ThrowUtils.throwIf(user == null, ErrorCode.NOT_FOUND_ERROR);
-        return ResultUtils.success(user);
+        return ResultUtils.success(toAdminUserVO(user));
     }
 
     /**
@@ -246,8 +260,11 @@ public class UserController {
      */
     @GetMapping("/get/vo")
     public BaseResponse<UserVO> getUserVOById(long id, HttpServletRequest request) {
-        BaseResponse<User> response = getUserById(id, request);
-        User user = response.getData();
+        if (id <= 0) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        }
+        User user = userService.getById(id);
+        ThrowUtils.throwIf(user == null, ErrorCode.NOT_FOUND_ERROR);
         return ResultUtils.success(userService.getUserVO(user));
     }
 
@@ -260,13 +277,16 @@ public class UserController {
      */
     @PostMapping("/list/page")
     @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-    public BaseResponse<Page<User>> listUserByPage(@RequestBody UserQueryRequest userQueryRequest,
+    public BaseResponse<Page<AdminUserVO>> listUserByPage(@RequestBody UserQueryRequest userQueryRequest,
             HttpServletRequest request) {
         long current = userQueryRequest.getCurrent();
         long size = userQueryRequest.getPageSize();
         Page<User> userPage = userService.page(new Page<>(current, size),
                 userService.getQueryWrapper(userQueryRequest));
-        return ResultUtils.success(userPage);
+        Page<AdminUserVO> page = new Page<>(current, size, userPage.getTotal());
+        page.setRecords(userPage.getRecords().stream().map(this::toAdminUserVO)
+                .collect(Collectors.toList()));
+        return ResultUtils.success(page);
     }
 
     /**
@@ -279,6 +299,7 @@ public class UserController {
     @PostMapping("/list/page/vo")
     public BaseResponse<Page<UserVO>> listUserVOByPage(@RequestBody UserQueryRequest userQueryRequest,
             HttpServletRequest request) {
+        userService.getLoginUser(request);
         if (userQueryRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -292,6 +313,12 @@ public class UserController {
         List<UserVO> userVO = userService.getUserVO(userPage.getRecords());
         userVOPage.setRecords(userVO);
         return ResultUtils.success(userVOPage);
+    }
+
+    private AdminUserVO toAdminUserVO(User user) {
+        AdminUserVO vo = new AdminUserVO();
+        BeanUtils.copyProperties(user, vo);
+        return vo;
     }
 
     // endregion

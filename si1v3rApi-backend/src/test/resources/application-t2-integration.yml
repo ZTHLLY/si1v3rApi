@@ -1,0 +1,5 @@
+spring:
+  datasource:
+    url: ${T2_MYSQL_URL:jdbc:mysql://127.0.0.1:13306/si1v3rApi?useSSL=false&allowPublicKeyRetrieval=true}
+    username: ${T2_MYSQL_USER:root}
+    password: ${T2_MYSQL_PASSWORD:}

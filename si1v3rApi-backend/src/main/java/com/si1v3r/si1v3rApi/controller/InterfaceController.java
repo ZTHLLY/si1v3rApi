@@ -1,8 +1,16 @@
 package com.si1v3r.si1v3rApi.controller;
 
-import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.google.gson.Gson;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.si1v3r.si1v3rApi.model.vo.UserKeyVO;
+import com.si1v3r.si1v3rApi.model.vo.InvokeResultVO;
+import com.si1v3r.si1v3rapiclientsdk.model.ApiResponse;
+import org.springframework.beans.factory.annotation.Value;
+import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.Iterator;
 import com.si1v3r.si1v3rApi.annotation.AuthCheck;
 import com.si1v3r.si1v3rApi.common.*;
 import com.si1v3r.si1v3rApi.constant.UserConstant;
@@ -26,7 +34,8 @@ import com.si1v3r.si1v3rapiclientsdk.client.Si1v3rApiClient;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.List;
+import java.util.stream.Collectors;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * 帖子接口
@@ -44,8 +53,9 @@ public class InterfaceController {
     @Resource
     private UserService userService;
 
-    @Resource
-    private Si1v3rApiClient si1v3rApiClient;
+
+    @Value("${si1v3r.client.gateway-host:http://localhost:8090}")
+    private String gatewayHost = "http://localhost:8090";
 
     // region 增删改查
 
@@ -57,6 +67,7 @@ public class InterfaceController {
      * @return
      */
     @PostMapping("/add")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<Long> addInterfaceInfo(@RequestBody InterfaceInfoAddRequest interfaceInfoAddRequest, HttpServletRequest request) {
         if (interfaceInfoAddRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
@@ -84,19 +95,15 @@ public class InterfaceController {
      * @return
      */
     @PostMapping("/delete")
+    @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
     public BaseResponse<Boolean> deleteInterfaceInfo(@RequestBody DeleteRequest deleteRequest, HttpServletRequest request) {
         if (deleteRequest == null || deleteRequest.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        User user = userService.getLoginUser(request);
         long id = deleteRequest.getId();
         // 判断是否存在
         InterfaceInfo oldInterfaceInfo = interfaceInfoService.getById(id);
         ThrowUtils.throwIf(oldInterfaceInfo == null, ErrorCode.NOT_FOUND_ERROR);
-        // 仅本人或管理员可删除
-        if (!oldInterfaceInfo.getUserId().equals(user.getId()) && !userService.isAdmin(request)) {
-            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
-        }
         boolean b = interfaceInfoService.removeById(id);
         return ResultUtils.success(b);
     }
@@ -170,14 +177,20 @@ public class InterfaceController {
     @PostMapping("/list/page/vo")
     public BaseResponse<Page<InterfaceInfoVO>> listInterfaceInfoVOByPage(@RequestBody InterfaceInfoQueryRequest interfaceInfoQueryRequest,
             HttpServletRequest request) {
-//        long current = interfaceInfoQueryRequest.getCurrent();
-//        long size = interfaceInfoQueryRequest.getPageSize();
-//        // 限制爬虫
-//        ThrowUtils.throwIf(size > 20, ErrorCode.PARAMS_ERROR);
-//        Page<InterfaceInfo> interfaceInfoPage = interfaceInfoService.page(new Page<>(current, size),
-//                interfaceInfoService.getQueryWrapper(interfaceInfoQueryRequest));
-//        return ResultUtils.success(interfaceInfoService.getInterfaceInfoVOPage(interfaceInfoPage, request));
-        return null;
+        userService.getLoginUser(request);
+        ThrowUtils.throwIf(interfaceInfoQueryRequest == null, ErrorCode.PARAMS_ERROR);
+        long current = interfaceInfoQueryRequest.getCurrent();
+        long size = interfaceInfoQueryRequest.getPageSize();
+        ThrowUtils.throwIf(current < 1 || size < 1 || size > 20, ErrorCode.PARAMS_ERROR);
+        Page<InterfaceInfo> page = interfaceInfoService.page(new Page<>(current, size),
+                interfaceInfoService.getQueryWrapper(interfaceInfoQueryRequest)
+                        .eq("status", InterfaceStatusEnum.ONLINE.getValue())
+                        .eq("isDelete", 0)
+                        .like(StringUtils.isNotBlank(interfaceInfoQueryRequest.getDescription()),
+                                "description", interfaceInfoQueryRequest.getDescription()));
+        Page<InterfaceInfoVO> voPage = new Page<>(page.getCurrent(), page.getSize(), page.getTotal());
+        voPage.setRecords(page.getRecords().stream().map(InterfaceInfoVO::objToVo).collect(Collectors.toList()));
+        return ResultUtils.success(voPage);
     }
 
 
@@ -200,16 +213,12 @@ public class InterfaceController {
         }
 
 
-        com.si1v3r.si1v3rapiclientsdk.model.User user=new com.si1v3r.si1v3rapiclientsdk.model.User();
-        user.setName("test");
-        String getUser = si1v3rApiClient.getUsernameByPost(user);
-        if(getUser==null){
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"接口认证失败");
-        }
+        interfaceInfoService.validInterfaceInfo(oldinterfaceInfo, true);
 
         InterfaceInfo interfaceInfo =new InterfaceInfo();
         interfaceInfo.setId(id);
         interfaceInfo.setStatus(InterfaceStatusEnum.ONLINE.getValue());
+        interfaceInfo.setMethod(oldinterfaceInfo.getMethod());
 
         boolean result = interfaceInfoService.updateById(interfaceInfo);
 
@@ -255,33 +264,51 @@ public class InterfaceController {
      * @return BaseResponse
      */
     @PostMapping("/invoke")
-    public BaseResponse<Object> invokeInterfaceInfo(@RequestBody InterfaceInfoInvokeRequest interfaceInfoInvokeRequest,HttpServletRequest request) {
-        if (interfaceInfoInvokeRequest == null || interfaceInfoInvokeRequest.getId()<=0) {
+    public BaseResponse<InvokeResultVO> invokeInterfaceInfo(@RequestBody InterfaceInfoInvokeRequest input, HttpServletRequest request) {
+        User loginUser = userService.getLoginUser(request);
+        if (input == null || input.getId() == null || input.getId() <= 0) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
-        Long id = interfaceInfoInvokeRequest.getId();
-        String requestParams = interfaceInfoInvokeRequest.getRequestParams();
-        InterfaceInfo oldinterfaceInfo = interfaceInfoService.getById(id);
-        //判断是否存在
-        if(oldinterfaceInfo==null){
-            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
+        InterfaceInfo info = interfaceInfoService.getById(input.getId());
+        ThrowUtils.throwIf(info == null, ErrorCode.NOT_FOUND_ERROR);
+        if (!Integer.valueOf(InterfaceStatusEnum.ONLINE.getValue()).equals(info.getStatus())) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "接口已下线");
         }
-        if(oldinterfaceInfo.getStatus()==InterfaceStatusEnum.OFFLINE.getValue()){
-            throw new BusinessException(ErrorCode.PARAMS_ERROR,"接口已下线");
+        String method = info.getMethod();
+        String params = input.getRequestParams();
+        Map<String, String> query = new LinkedHashMap<>();
+        String body = null;
+        try {
+            JsonNode json = StringUtils.isBlank(params) ? null : new ObjectMapper()
+                    .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).readTree(params);
+            if ("GET".equals(method) || "DELETE".equals(method)) {
+                if (json != null) {
+                    if (!json.isObject()) {
+                        throw new IllegalArgumentException();
+                    }
+                    Iterator<Map.Entry<String, JsonNode>> fields = json.fields();
+                    while (fields.hasNext()) {
+                        Map.Entry<String, JsonNode> field = fields.next();
+                        if (field.getValue().isContainerNode()) {
+                            throw new IllegalArgumentException();
+                        }
+                        query.put(field.getKey(), field.getValue().asText());
+                    }
+                }
+            } else if ("POST".equals(method) || "PUT".equals(method)) {
+                body = StringUtils.isBlank(params) ? "{}" : params;
+            } else {
+                throw new IllegalArgumentException();
+            }
+        } catch (Exception e) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "requestParams 不合法");
         }
-
-
-        User loginUser = userService.getLoginUser(request);
-        String assessKey=loginUser.getAssessKey();
-        String secretKey = loginUser.getSecretKey();
-        Si1v3rApiClient tempClient=new Si1v3rApiClient(assessKey,secretKey);
-
-        Gson gson=new Gson();
-        com.si1v3r.si1v3rapiclientsdk.model.User user = gson.fromJson(requestParams,com.si1v3r.si1v3rapiclientsdk.model.User.class);
-        String username = tempClient.getUsernameByPost(user);
-        return ResultUtils.success(username);
+        UserKeyVO keys = userService.getUserKey(loginUser.getId(), false);
+        Si1v3rApiClient client = new Si1v3rApiClient(keys.getAssessKey(), keys.getSecretKey(), gatewayHost);
+        ApiResponse response = client.invoke(method, info.getUrl(), query, body);
+        InvokeResultVO result = new InvokeResultVO();
+        result.setStatus(response.getStatus());
+        result.setBody(response.getBody());
+        return ResultUtils.success(result);
     }
-
-
-
 }

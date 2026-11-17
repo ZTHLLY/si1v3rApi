@@ -54,20 +54,33 @@
 
 ## 客户端 SDK 使用
 
-- **位置**：`si1v3rApi-backend/si1v3rApiClient-sdk`，提供签名工具和 `Si1v3rApiClient` 客户端。
-- **样例**：
+- **位置**：`si1v3rApi-backend/si1v3rApiClient-sdk`。
+- **通用调用**（`ApiResponse` 的 `getStatus()` / `getBody()` 返回 HTTP 状态码和响应体，非 2xx 也正常返回，网络故障抛出 `UncheckedIOException`）：
   ```java
-  Si1v3rApiClient client = new Si1v3rApiClient("admin01", "abcdefgh");
-  // GET 示例
-  client.getNameByGet("si1v3r");
-  // POST 表单示例
-  client.getNameByPost("si1v3r");
-  // JSON + 签名示例
+  Si1v3rApiClient client = new Si1v3rApiClient(
+      "<your-access-key>", "<your-secret-key>", "http://localhost:8090/");
+  ApiResponse response = client.invoke("POST", "/api/user",
+      Collections.singletonMap("x", "a b/中文"), "{\"name\":\"tester\"}");
+  // 兼容旧方法：均经过网关签名
+  client.getNameByGet("tester");
+  client.getNameByPost("tester");
   User user = new User();
   user.setName("tester");
   client.getUsernameByPost(user);
   ```
-  客户端内部会生成 `assessKey/nonce/timestamp/sign` 头并调用网关 `http://localhost:8090/api/**`。
+- 两参数构造器默认访问 `http://localhost:8090`；三参数构造器可指定网关地址（仅 HTTP(S) origin，末尾 `/` 自动移除）。`path` 使用以 `/` 开头的原始百分号编码路径，不含 query 或 fragment；query 按 key 排序并做 UTF-8 百分号编码，空格使用 `%20`。
+- 签名为 HMAC-SHA256，覆盖 method、原始 path/query、请求体 SHA-256、`assessKey`、Unix 秒时间戳及 16 字节安全随机 nonce；通过 `assessKey/timestamp/nonce/sign` 请求头发送。详见 `doc/mvp-contract.md` 第 3 节。
+- **Spring Boot 配置**（key 保留现有拼写 `assess-key`）：
+  ```yaml
+  si1v3r:
+    client:
+      assess-key: <your-access-key>
+      secret-key: <your-secret-key>
+      gateway-host: http://localhost:8090 # 可选
+      connect-timeout-millis: 5000        # 可选，正整数毫秒
+      read-timeout-millis: 10000          # 可选，正整数毫秒
+  ```
+  普通 Java 调用可通过 `setConnectTimeoutMillis` / `setReadTimeoutMillis` 设置超时。
 
 ## 前端（端口 8000）
 

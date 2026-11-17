@@ -9,8 +9,6 @@
             <result property="userId" column="userId" jdbcType="BIGINT"/>
             <result property="interfaceInfoId" column="interfaceInfoId" jdbcType="BIGINT"/>
             <result property="totalNum" column="totalNum" jdbcType="INTEGER"/>
-            <result property="leftNum" column="leftNum" jdbcType="INTEGER"/>
-            <result property="status" column="status" jdbcType="INTEGER"/>
             <result property="createTime" column="createTime" jdbcType="TIMESTAMP"/>
             <result property="updateTime" column="updateTime" jdbcType="TIMESTAMP"/>
             <result property="isDelete" column="isDelete" jdbcType="TINYINT"/>
@@ -18,7 +16,14 @@
 
     <sql id="Base_Column_List">
         id,userId,interfaceInfoId,
-        totalNum,leftNum,status,
+        totalNum,
         createTime,updateTime,isDelete
     </sql>
+    <select id="listMyInvokeStats" resultType="com.si1v3r.si1v3rApi.model.vo.MyInvokeStatVO">
+        SELECT c.interfaceInfoId, i.name AS interfaceName, i.url, i.method, c.totalNum, c.updateTime
+        FROM user_interface_info c
+        LEFT JOIN interface_info i ON i.id = c.interfaceInfoId AND i.isDelete = 0
+        WHERE c.userId = #{userId} AND c.isDelete = 0
+        ORDER BY c.totalNum DESC
+    </select>
 </mapper>

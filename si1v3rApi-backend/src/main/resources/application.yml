@@ -52,10 +52,11 @@ server:
     session:
       cookie:
         max-age: 2592000
+        http-only: true
+        same-site: lax
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: false
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
   global-config:
     db-config:
       logic-delete-field: isDelete # 全局逻辑删除的实体字段名
@@ -103,15 +104,16 @@ knife4j:
           - com.si1v3r.si1v3rApi.controller
     concat: "si1v3r"
 si1v3r:
+  cors:
+    allowed-origins: ${SI1V3R_CORS_ALLOWED_ORIGINS:http://localhost:8000}
   client:
-    assess-key: admin01
-    secret-key: abcdefgh
+    gateway-host: http://localhost:8090
 
 # 以下配置指定了应用的名称、使用的协议（Dubbo）、注册中心的类型（Nacos）和地址
 dubbo:
   application:
     # 设置应用的名称
-    name: dubbo-springboot-demo-provider
+    name: si1v3rApi-backend
     qos-enable: false
   # 指定使用 Dubbo 协议，且端口设置为 -1，表示随机分配可用端口
   protocol:

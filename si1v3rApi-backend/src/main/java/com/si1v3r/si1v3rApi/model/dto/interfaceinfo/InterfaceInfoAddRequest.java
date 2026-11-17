@@ -14,10 +14,6 @@ public class InterfaceInfoAddRequest implements Serializable {
 
 
 
-    /**
-     * id
-     */
-    private Long id;
 
     /**
      * 名称

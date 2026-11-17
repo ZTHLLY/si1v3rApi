@@ -1,21 +1,21 @@
 import { userLogoutUsingPost } from '@/services/si1v3rApi-backend/userController';
-import { LogoutOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
+import { LogoutOutlined, UserOutlined } from '@ant-design/icons';
 import { history, useModel } from '@umijs/max';
 import { Avatar, Button, Space } from 'antd';
 import { stringify } from 'querystring';
 import type { MenuInfo } from 'rc-menu/lib/interface';
 import React, { useCallback } from 'react';
 import { flushSync } from 'react-dom';
-import { Link } from 'umi';
+import { Link } from '@umijs/max';
 import HeaderDropdown from '../HeaderDropdown';
 
 export type GlobalHeaderRightProps = {
   menu?: boolean;
 };
 
-export const AvatarDropdown: React.FC<GlobalHeaderRightProps> = ({ menu }) => {
+export const AvatarDropdown: React.FC<GlobalHeaderRightProps> = ({ menu = true }) => {
   /**
-   * 退出登录，并且将当前的 url 保存
+   * Sign out，并且将当前的 url 保存
    */
   const loginOut = async () => {
     await userLogoutUsingPost();
@@ -57,7 +57,7 @@ export const AvatarDropdown: React.FC<GlobalHeaderRightProps> = ({ menu }) => {
     return (
       <Link to="/user/login">
         <Button type="primary" shape="round">
-          登录
+          Login
         </Button>
       </Link>
     );
@@ -69,12 +69,7 @@ export const AvatarDropdown: React.FC<GlobalHeaderRightProps> = ({ menu }) => {
           {
             key: 'center',
             icon: <UserOutlined />,
-            label: '个人中心',
-          },
-          {
-            key: 'settings',
-            icon: <SettingOutlined />,
-            label: '个人设置',
+            label: 'Account center',
           },
           {
             type: 'divider' as const,
@@ -84,7 +79,7 @@ export const AvatarDropdown: React.FC<GlobalHeaderRightProps> = ({ menu }) => {
     {
       key: 'logout',
       icon: <LogoutOutlined />,
-      label: '退出登录',
+      label: 'Sign out',
     },
   ];
 
